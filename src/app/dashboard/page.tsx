@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -31,13 +31,19 @@ import {
   Send,
   WalletIcon,
   ExternalLink,
+  ArrowLeft,
 } from "lucide-react";
 import { CryptoWebApi } from "@/lib/cryptowebapi";
+import { CryptoWebApiClient } from 'cryptowebapi-connector-js';
 import { useAccountStore } from "@/store/account";
 import { RouteGuard } from "@/components/route-guard";
+import { Wallet as WalletType, getAllWallets, saveWallet } from "@/lib/accountDb";
 
-// Initialize API client
+// Initialize API clients
 const apiClient = new CryptoWebApi(process.env.NEXT_PUBLIC_CRYPTOWEBAPI_KEY || "");
+const cryptoWebApiClient = new CryptoWebApiClient({
+  apiKey: process.env.NEXT_PUBLIC_CRYPTOWEBAPI_KEY || "",
+});
 
 // Types
 interface Token {
@@ -74,100 +80,32 @@ interface Wallet {
   transactions: Transaction[];
 }
 
-// Default mock data
-const defaultWallets: Wallet[] = [
-  {
-    id: "1",
-    name: "Main Wallet",
-    address: "0x1234567890abcdef1234567890abcdef12345678",
-    network: "ethereum",
-    balance: 2.45,
-    balanceUSD: 4892.5,
-    change24h: 156.78,
-    changePercent24h: 3.31,
-    tokens: [
-      {
-        symbol: "ETH",
-        name: "Ethereum",
-        balance: 2.45,
-        balanceUSD: 4892.5,
-        price: 1997.96,
-        change24h: 3.31,
-      },
-      {
-        symbol: "USDC",
-        name: "USD Coin",
-        balance: 1250.0,
-        balanceUSD: 1250.0,
-        price: 1.0,
-        change24h: 0.01,
-      },
-    ],
-    transactions: [
-      {
-        id: "tx1",
-        type: "send",
-        amount: 0.5,
-        symbol: "ETH",
-        to: "0xabcdef1234567890abcdef1234567890abcdef12",
-        timestamp: Date.now() - 3600000,
-        status: "confirmed",
-        hash: "0x123...",
-      },
-      {
-        id: "tx2",
-        type: "receive",
-        amount: 1.2,
-        symbol: "ETH",
-        from: "0xfedcba0987654321fedcba0987654321fedcba09",
-        timestamp: Date.now() - 7200000,
-        status: "confirmed",
-        hash: "0x456...",
-      },
-    ],
-  },
-  {
-    id: "2",
-    name: "Trading Wallet",
-    address: "0xabcdef1234567890abcdef1234567890abcdef12",
-    network: "bnb",
-    balance: 45.67,
-    balanceUSD: 2834.15,
-    change24h: -89.23,
-    changePercent24h: -3.05,
-    tokens: [
-      {
-        symbol: "BNB",
-        name: "Binance Coin",
-        balance: 45.67,
-        balanceUSD: 2834.15,
-        price: 62.05,
-        change24h: -3.05,
-      },
-    ],
-    transactions: [
-      {
-        id: "tx3",
-        type: "send",
-        amount: 10.0,
-        symbol: "BNB",
-        to: "0x9876543210abcdef9876543210abcdef98765432",
-        timestamp: Date.now() - 1800000,
-        status: "confirmed",
-        hash: "0x789...",
-      },
-    ],
-  },
-];
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { lock } = useAccountStore();
+  const { lock, db } = useAccountStore();
 
-  const [wallets, setWallets] = useState<Wallet[]>(defaultWallets);
-  const [selectedWallet, setSelectedWallet] = useState<Wallet | null>(null);
+  const [wallets, setWallets] = useState<WalletType[]>([]);
+  const [selectedWallet, setSelectedWallet] = useState<WalletType | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
   const [balanceVisible, setBalanceVisible] = useState(true);
+
+  // Load wallets from IndexedDB on component mount
+  useEffect(() => {
+    const loadWallets = async () => {
+      if (db) {
+        try {
+          const loadedWallets = await getAllWallets(db);
+          setWallets(loadedWallets);
+        } catch (error) {
+          console.error("Error loading wallets:", error);
+        }
+      }
+    };
+
+    loadWallets();
+  }, [db]);
 
   // Form state for adding wallets
   const [newWalletForm, setNewWalletForm] = useState({
@@ -177,6 +115,15 @@ export default function DashboardPage() {
     balance: "",
     balanceUSD: "",
   });
+
+  // Form state for creating wallets
+  const [createWalletForm, setCreateWalletForm] = useState({
+    name: "",
+    network: "ethereum" as "ethereum" | "bnb",
+  });
+
+  // Loading state for wallet creation
+  const [isCreatingWallet, setIsCreatingWallet] = useState(false);
 
   // Calculations
   const totalBalance = wallets.reduce((sum, wallet) => sum + wallet.balanceUSD, 0);
@@ -208,17 +155,17 @@ export default function DashboardPage() {
   };
 
   // Event handlers
-  const handleAddWallet = (e: React.FormEvent) => {
+  const handleAddWallet = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!newWalletForm.name || !newWalletForm.address || !newWalletForm.balance || !newWalletForm.balanceUSD) {
+    if (!newWalletForm.name || !newWalletForm.address || !newWalletForm.balance || !newWalletForm.balanceUSD || !db) {
       return;
     }
 
     const balanceNum = Number.parseFloat(newWalletForm.balance);
     const balanceUSDNum = Number.parseFloat(newWalletForm.balanceUSD);
 
-    const newWallet: Wallet = {
+    const newWallet: WalletType = {
       id: Date.now().toString(),
       name: newWalletForm.name,
       address: newWalletForm.address,
@@ -231,23 +178,78 @@ export default function DashboardPage() {
       transactions: [],
     };
 
-    setWallets([...wallets, newWallet]);
-    setShowAddModal(false);
-    setNewWalletForm({
-      name: "",
-      address: "",
-      network: "ethereum",
-      balance: "",
-      balanceUSD: "",
-    });
+    try {
+      // Save to IndexedDB
+      await saveWallet(db, newWallet);
+
+      // Update state
+      setWallets([...wallets, newWallet]);
+      setShowAddModal(false);
+      setNewWalletForm({
+        name: "",
+        address: "",
+        network: "ethereum",
+        balance: "",
+        balanceUSD: "",
+      });
+    } catch (error) {
+      console.error("Error saving wallet:", error);
+    }
   };
 
-  const handleWalletSelect = (wallet: Wallet) => {
+  const handleWalletSelect = (wallet: WalletType) => {
     setSelectedWallet(wallet);
   };
 
   const handleBackToList = () => {
     setSelectedWallet(null);
+  };
+
+  // Handle wallet creation
+  const handleCreateWallet = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!createWalletForm.name || !createWalletForm.network || !db) {
+      return;
+    }
+
+    setIsCreatingWallet(true);
+
+    try {
+      // Create wallet using CryptoWebApiClient
+      const newWallet = await cryptoWebApiClient.createWallet({ 
+        network: createWalletForm.network 
+      });
+
+      // Create wallet object
+      const walletData: WalletType = {
+        id: Date.now().toString(),
+        name: createWalletForm.name,
+        address: newWallet.address,
+        network: createWalletForm.network,
+        balance: 0,
+        balanceUSD: 0,
+        change24h: 0,
+        changePercent24h: 0,
+        tokens: [],
+        transactions: [],
+      };
+
+      // Save to IndexedDB
+      await saveWallet(db, walletData);
+
+      // Update state
+      setWallets([...wallets, walletData]);
+      setShowCreateModal(false);
+      setCreateWalletForm({
+        name: "",
+        network: "ethereum",
+      });
+    } catch (error) {
+      console.error("Error creating wallet:", error);
+    } finally {
+      setIsCreatingWallet(false);
+    }
   };
 
   // Render wallet list view or wallet detail view
@@ -523,7 +525,7 @@ export default function DashboardPage() {
                   Send
                 </Button>
                 <Button
-                  onClick={() => setShowAddModal(true)}
+                  onClick={() => setShowCreateModal(true)}
                   className="bg-green-600 hover:bg-green-700 text-white rounded-full px-6 py-3 min-w-[80px]"
                 >
                   Create
@@ -689,6 +691,67 @@ export default function DashboardPage() {
                 </Button>
                 <Button type="submit" className="flex-1 bg-blue-600 hover:bg-blue-700 text-white">
                   Add Wallet
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Create Wallet Modal */}
+        <Dialog open={showCreateModal} onOpenChange={setShowCreateModal}>
+          <DialogContent className="bg-white border-gray-200 text-gray-900">
+            <DialogHeader>
+              <DialogTitle className="text-gray-900">Create New Wallet</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleCreateWallet} className="space-y-4">
+              <div>
+                <Label htmlFor="createName" className="text-gray-700">
+                  Wallet Name
+                </Label>
+                <Input
+                  id="createName"
+                  value={createWalletForm.name}
+                  onChange={(e) => setCreateWalletForm({ ...createWalletForm, name: e.target.value })}
+                  placeholder="My Wallet"
+                  className="bg-white border-gray-300 text-gray-900"
+                  required
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="createNetwork" className="text-gray-700">
+                  Network
+                </Label>
+                <Select
+                  value={createWalletForm.network}
+                  onValueChange={(value: "ethereum" | "bnb") => setCreateWalletForm({ ...createWalletForm, network: value })}
+                >
+                  <SelectTrigger className="bg-white border-gray-300 text-gray-900">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white border-gray-200">
+                    <SelectItem value="ethereum">Ethereum</SelectItem>
+                    <SelectItem value="bnb">BNB Chain</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowCreateModal(false)}
+                  className="flex-1 border-gray-300 text-gray-700 hover:bg-gray-50"
+                  disabled={isCreatingWallet}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  type="submit" 
+                  className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                  disabled={isCreatingWallet}
+                >
+                  {isCreatingWallet ? "Creating..." : "Create Wallet"}
                 </Button>
               </div>
             </form>
