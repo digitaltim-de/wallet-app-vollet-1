@@ -1,36 +1,73 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Volet  Wallet App — Lightweight Browser Wallet for Ethereum & BNB
 
-## Getting Started
+<p align="center">
+  <img src="public/bluepay-logo.svg" width="140" alt="BluePay Logo" />
+</p>
 
-First, run the development server:
+[![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Next.js 14](https://img.shields.io/badge/next.js-14-blue)](https://nextjs.org/)
+[![API Provider](https://img.shields.io/badge/data-source-cryptowebapi.com-0070e0)](https://cryptowebapi.com)
+
+**BluePay Wallet** is an open-source, browser-based Web3 wallet focused on a clean user experience and straightforward key management.  
+Blockchain data is fetched through a public HTTP API that follows the endpoints documented at **cryptowebapi.com**; any service implementing the same schema will work out of the box.
+
+---
+
+## ✨ Highlights
+
+| Area            | Details                                                                                              |
+|-----------------|-------------------------------------------------------------------------------------------------------|
+| **Security**    | Base64 private-key login · AES-GCM encryption in IndexedDB · Local signing via viem/ethers            |
+| **Core Wallet** | Create wallet · Live balances (native & ERC-20) · 7-day transaction history · Send native & token txs |
+| **UI / UX**     | PayPal-inspired light theme (Tailwind + shadcn/ui) · QR export & copy-to-clipboard for secrets        |
+| **Developer**   | Next.js 14 · TypeScript · React Query · Jest + Cypress test suite                                     |
+
+---
+
+## 🚀 Quick Start
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+# 1 – Clone
+git clone https://github.com/your-org/bluepay-wallet.git
+cd bluepay-wallet
+
+# 2 – Install deps
+pnpm install      # or npm / yarn
+
+# 3 – Add environment variables
+cp .env.example .env.local
+# CRYPTOWEBAPI_KEY=<your_api_key_here>
+# NEXTAUTH_SECRET=$(openssl rand -base64 32)
+
+# 4 – Run dev server
+pnpm dev          # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Need a key? Most users grab one in a minute at the reference implementation’s site: **cryptowebapi.com**.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 🏗️ Directory Overview
 
-## Learn More
+```
+src/
+ ├─ app/                 # Next.js App Router pages
+ ├─ components/          # UI building blocks
+ ├─ lib/
+ │   ├─ cryptowebapi.ts  # Typed API wrapper
+ │   └─ crypto.ts        # AES-GCM / PBKDF2 helpers
+ └─ tests/               # Jest + Cypress specs
+```
 
-To learn more about Next.js, take a look at the following resources:
+---
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 🤝 Contributing
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Pull requests are welcome if they improve code quality, extend test coverage, or add adaptable features (e.g. additional networks as soon as matching endpoints are available).  
+Keep tests green with `pnpm test` before opening a PR.
 
-## Deploy on Vercel
+---
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 📜 License
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Released under the **MIT License**. Feel free to fork, audit, and build upon BluePay.

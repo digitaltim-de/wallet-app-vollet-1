@@ -1,0 +1,377 @@
+{
+  "info": {
+    "name": "Cryptowebapi",
+    "description": "www.cryptowebapi.com",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Blockchain",
+      "item": [
+        {
+          "name": "/api/blockchain/transaction \u2013 Get Transaction (Real-time)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "https://api.cryptowebapi.com/api/blockchain/transaction",
+              "host": [
+                "api",
+                "cryptowebapi",
+                "com"
+              ],
+              "path": [
+                "api",
+                "blockchain",
+                "transaction"
+              ],
+              "query": [
+                {
+                  "key": "key",
+                  "value": "<key>",
+                  "description": "API key for authorization. Create it in your Dashboard.",
+                  "disabled": false
+                },
+                {
+                  "key": "network",
+                  "value": "<network>",
+                  "description": "Blockchain network where the transaction exists (ethereum, bnb, bitcoin, tron).",
+                  "disabled": false
+                },
+                {
+                  "key": "transactionId",
+                  "value": "<transactionId>",
+                  "description": "The unique identifier of the transaction to retrieve.",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "URL: https://api.cryptowebapi.com/api/blockchain/transaction\n\n    **What this endpoint does:**\n    - Retrieves detailed information about a specific blockchain transaction using its hash.\n    - Fetches data directly from the blockchain network in real-time.\n    - Provides access to any transaction regardless of age (no time limitation).\n\n    **Key Features:**\n    - Real-time blockchain data (not from historical database)\n    - Complete transaction details\n    - No time limitation (can access transactions of any age)\n\n    **How to use:**\n    1. Provide the target blockchain via `network` query parameter.\n    2. Provide the `transactionId` via query.\n    3. Authenticate using your API key via `key` query parameter or `Authorization` header.\n\n    **Example Request:**\n    ```\n    GET /api/blockchain/transaction?network=ethereum&transactionId=0xABC123&key=YOUR_API_KEY\n    ```"
+          }
+        },
+        {
+          "name": "/api/blockchain/transactions \u2013 List Transactions (7-Day History)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "https://api.cryptowebapi.com/api/blockchain/transactions",
+              "host": [
+                "api",
+                "cryptowebapi",
+                "com"
+              ],
+              "path": [
+                "api",
+                "blockchain",
+                "transactions"
+              ],
+              "query": [
+                {
+                  "key": "key",
+                  "value": "<key>",
+                  "description": "API key for authorization. Create it in your Dashboard.",
+                  "disabled": false
+                },
+                {
+                  "key": "network",
+                  "value": "<network>",
+                  "description": "Blockchain network to query (ethereum, bnb, bitcoin, tron).",
+                  "disabled": false
+                },
+                {
+                  "key": "address",
+                  "value": "<address>",
+                  "description": "Filter transactions by sender or recipient address.",
+                  "disabled": true
+                },
+                {
+                  "key": "fromAddress",
+                  "value": "<fromAddress>",
+                  "description": "Filter transactions by sender address.",
+                  "disabled": true
+                },
+                {
+                  "key": "toAddress",
+                  "value": "<toAddress>",
+                  "description": "Filter transactions by recipient address.",
+                  "disabled": true
+                },
+                {
+                  "key": "txType",
+                  "value": "<txType>",
+                  "description": "Filter by transaction type.",
+                  "disabled": true
+                },
+                {
+                  "key": "tokenSymbol",
+                  "value": "<tokenSymbol>",
+                  "description": "Filter by token symbol.",
+                  "disabled": true
+                },
+                {
+                  "key": "fromValue",
+                  "value": "<fromValue>",
+                  "description": "Minimum transaction value.",
+                  "disabled": true
+                },
+                {
+                  "key": "toValue",
+                  "value": "<toValue>",
+                  "description": "Maximum transaction value.",
+                  "disabled": true
+                },
+                {
+                  "key": "minValueDecimal",
+                  "value": "<minValueDecimal>",
+                  "description": "Minimum transaction value.",
+                  "disabled": true
+                },
+                {
+                  "key": "maxValueDecimal",
+                  "value": "<maxValueDecimal>",
+                  "description": "Maximum transaction value.",
+                  "disabled": true
+                },
+                {
+                  "key": "minFeeDecimal",
+                  "value": "<minFeeDecimal>",
+                  "description": "Minimum transaction fee.",
+                  "disabled": true
+                },
+                {
+                  "key": "maxFeeDecimal",
+                  "value": "<maxFeeDecimal>",
+                  "description": "Maximum transaction fee.",
+                  "disabled": true
+                },
+                {
+                  "key": "fromTimestamp",
+                  "value": "<fromTimestamp>",
+                  "description": "Start date for filtering (YYYY-MM-DD or timestamp).",
+                  "disabled": true
+                },
+                {
+                  "key": "toTimestamp",
+                  "value": "<toTimestamp>",
+                  "description": "End date for filtering (YYYY-MM-DD or timestamp).",
+                  "disabled": true
+                },
+                {
+                  "key": "startDate",
+                  "value": "<startDate>",
+                  "description": "Start date for filtering (YYYY-MM-DD or timestamp).",
+                  "disabled": true
+                },
+                {
+                  "key": "endDate",
+                  "value": "<endDate>",
+                  "description": "End date for filtering (YYYY-MM-DD or timestamp).",
+                  "disabled": true
+                },
+                {
+                  "key": "sortBy",
+                  "value": "<sortBy>",
+                  "description": "Field to sort by (timestamp, valueDecimal, feeDecimal).",
+                  "disabled": true
+                },
+                {
+                  "key": "sortOrder",
+                  "value": "<sortOrder>",
+                  "description": "Sort direction (asc, desc).",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "<limit>",
+                  "description": "Maximum number of results to return (max 1000).",
+                  "disabled": true
+                },
+                {
+                  "key": "offset",
+                  "value": "<offset>",
+                  "description": "Number of results to skip for pagination.",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "URL: https://api.cryptowebapi.com/api/blockchain/transactions\n\n    **What this endpoint does:**\n    - Fetches blockchain transactions from our stored data (last 7 days only) using various filters.\n    - This endpoint provides historical transaction data from our indexed database, not live blockchain data.\n\n    **Key Features:**\n    - Access to transaction history for the past 7 days\n    - Filter by sender/recipient\n    - Filter by value or date range\n    - Filter by token symbol or transaction type\n    - Supports pagination (`limit`, `offset`)\n    - Supports sorting (`sortBy`, `sortOrder`)\n\n    **How to use:**\n    1. Provide `network` query parameter.\n    2. Apply filters as needed (e.g., `address`, `fromValue`, `fromTimestamp`, etc.).\n    3. Use `limit` and `offset` for pagination.\n    4. Use `sortBy` and `sortOrder` for sorting.\n    5. Authenticate using your API key.\n\n    **Example Request:**\n    ```\n    GET /api/blockchain/transactions?network=ethereum&address=0xDEF456&limit=50&sortBy=timestamp&sortOrder=desc&key=YOUR_API_KEY\n    ```"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Info",
+      "item": [
+        {
+          "name": "/api/info/supported-coins \u2013 \ud83d\udcc4 Supported Coins Metadata",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "https://api.cryptowebapi.com/api/info/supported-coins",
+              "host": [
+                "api",
+                "cryptowebapi",
+                "com"
+              ],
+              "path": [
+                "api",
+                "info",
+                "supported-coins"
+              ],
+              "query": [
+                {
+                  "key": "network",
+                  "value": "<network>",
+                  "description": "Optional network name to filter coins by chain (e.g. `ethereum`, `bsc`, `tron`)",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "URL: https://api.cryptowebapi.com/api/info/supported-coins\n\n        \ud83d\udcac **What this endpoint does:**\n        - Returns a list of all supported coins and tokens.\n        - Includes blockchain, symbol, decimals, contract address, and real-time USD price.\n\n        \ud83d\udee0\ufe0f **Features:**\n        - Price data is updated every minute using Binance + Coinbase.\n        - Supports tokens across Ethereum, Tron, Binance Smart Chain, and more.\n        - Can be used to dynamically build UIs, balance views, etc.\n\n        \ud83d\udccc **Note:**\n        - This endpoint does not require parameters.\n        - No authentication is required.\n\n        \ud83e\uddea **Use case:**\n        - Frontend wants to show available tokens for a chain.\n        - Display all supported coins with symbols and real-time rates."
+          }
+        },
+        {
+          "name": "/api/info/wallet-validation \u2013 \u2705 Validate Wallet Address",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "https://api.cryptowebapi.com/api/info/wallet-validation",
+              "host": [
+                "api",
+                "cryptowebapi",
+                "com"
+              ],
+              "path": [
+                "api",
+                "info",
+                "wallet-validation"
+              ],
+              "query": [
+                {
+                  "key": "key",
+                  "value": "<key>",
+                  "description": "API key for authorization. Create it in your Dashboard.",
+                  "disabled": false
+                },
+                {
+                  "key": "network",
+                  "value": "<network>",
+                  "description": "Blockchain network name (e.g., Ethereum, Tron, BinanceSmartChain).",
+                  "disabled": false
+                },
+                {
+                  "key": "address",
+                  "value": "<address>",
+                  "description": "Wallet address to validate.",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "URL: https://api.cryptowebapi.com/api/info/wallet-validation\n\n\ud83d\udcac **What this endpoint does:**\n- Validates a wallet address for a given blockchain network.\n- Checks if the provided address is valid and properly formatted for the specified network.\n\n\ud83d\udee0\ufe0f **Features:**\n- Supports multiple blockchain networks.\n- Performs format validation specific to each blockchain.\n- Returns a boolean indicating address validity.\n\n\ud83c\udf10 **How to use:**\n- Provide the required blockchain network (`network`) and wallet `address`.\n- Ensure your API key is valid for authorization."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Wallet",
+      "item": [
+        {
+          "name": "/api/wallet/balance \u2013 \ud83d\udcb0 Retrieve Wallet Balance",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "https://api.cryptowebapi.com/api/wallet/balance",
+              "host": [
+                "api",
+                "cryptowebapi",
+                "com"
+              ],
+              "path": [
+                "api",
+                "wallet",
+                "balance"
+              ],
+              "query": [
+                {
+                  "key": "key",
+                  "value": "<key>",
+                  "description": "API key for authorization. Create it in your Dashboard.",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "URL: https://api.cryptowebapi.com/api/wallet/balance\n\n\ud83d\udcac **What this endpoint does:**\n- Fetches the current balance of a given wallet address on a specified blockchain network.\n- Returns both native token and token balances in a structured format.\n\n\ud83e\udde9 **Key Features:**\n- \ud83d\udd10 Validates wallet addresses before querying balances.\n- \ud83c\udf10 Supports multiple blockchain networks dynamically.\n- \ud83e\ude99 Returns native token balances first, followed by token balances (sorted by value).\n- \ud83c\udfaf Supports both default and user-specified token contracts (up to 20).\n\n\ud83d\udce5 **How to use:**\n1. Provide the target blockchain via `network` (e.g. Ethereum, BNB, Tron).\n2. Provide the wallet `address` (required).\n3. Optionally define `mode` (mainnet/testnet) \u2014 default is `mainnet`.\n4. (Optional) Specify up to 20 custom tokens in the `tokens` array.\n5. Authenticate via your API key in the `key` header or query parameter.\n\nThe tokens array is optional. If not provided, our service will return the native token balance by default and all other default supported tokens."
+          }
+        },
+        {
+          "name": "/api/wallet/create \u2013 \u2728 Create a New Wallet",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "https://api.cryptowebapi.com/api/wallet/create",
+              "host": [
+                "api",
+                "cryptowebapi",
+                "com"
+              ],
+              "path": [
+                "api",
+                "wallet",
+                "create"
+              ],
+              "query": [
+                {
+                  "key": "key",
+                  "value": "<key>",
+                  "description": "API key for authorization. Create it in your Dashboard.",
+                  "disabled": false
+                },
+                {
+                  "key": "network",
+                  "value": "<network>",
+                  "description": "Blockchain network name. Supported: ethereum, bnb, tron",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "URL: https://api.cryptowebapi.com/api/wallet/create\n\n        \ud83d\udcac **What this endpoint does:**\n        - Creates a new wallet address for the specified blockchain network.\n\n        \ud83d\udee0\ufe0f **Features:**\n        - Generates secure wallet addresses dynamically.\n        - Supports multiple blockchain networks (Ethereum, Binance Smart Chain (BNB), Tron, Bitcoin).\n        - Handles error responses gracefully if wallet creation fails.\n\n        \ud83c\udf10 **How to use:**\n        - Provide the blockchain network (`network`) for which you want to create a wallet.\n        - Only supported networks: ethereum, bnb, tron, bitcoin.\n        - Ensure your API key is valid for authorization."
+          }
+        },
+        {
+          "name": "/api/wallet/send \u2013 \ud83d\udcb8 Send Raw Transaction",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "https://api.cryptowebapi.com/api/wallet/send",
+              "host": [
+                "api",
+                "cryptowebapi",
+                "com"
+              ],
+              "path": [
+                "api",
+                "wallet",
+                "send"
+              ],
+              "query": [
+                {
+                  "key": "key",
+                  "value": "<key>",
+                  "description": "API key for authorization. Create it in your Dashboard.",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "URL: https://api.cryptowebapi.com/api/wallet/send\n\n\ud83d\udcac **What this endpoint does:**\n- Sends a raw transaction to the blockchain network.\n- Supports various blockchain networks dynamically.\n\n\ud83d\udee0\ufe0f **Features:**\n- Validates and broadcasts raw transactions.\n- Supports both mainnet and testnet environments.\n\n\ud83c\udf10 **How to use:**\n- Provide the required raw transaction (`rawTx`), blockchain `network`, and `mode`.\n- Ensure your API key is valid for authorization."
+          }
+        }
+      ]
+    }
+  ]
+}
