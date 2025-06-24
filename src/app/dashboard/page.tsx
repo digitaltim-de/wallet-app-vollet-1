@@ -2,41 +2,51 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
+import { 
+  WalletIcon, 
+  Plus, 
+  ArrowRight, 
+  Search, 
+  EyeOff, 
+  Eye, 
+  ArrowLeft, 
+  Settings, 
+  LogOut, 
+  Copy, 
+  ArrowDownToLine, 
+  ArrowUpFromLine, 
+  ArrowUpCircle,
+  ArrowUpRight,
+  ArrowDownLeft, 
+  Wallet, 
+  Sparkles, 
+  TrendingUp, 
+  TrendingDown, 
+  ChevronRight, 
+  Bell,
+  AlertCircle,
+  ExternalLink,
+  Send,
+  Zap,
+  Globe,
+  QrCode,
+  Shield
+} from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import {
-  ArrowDownLeft,
-  ArrowUpRight,
-  Copy,
-  Eye,
-  EyeOff,
-  Globe,
-  Plus,
-  QrCode,
-  Settings,
-  Shield,
-  Wallet,
-  Zap,
-  ChevronRight,
-  TrendingUp,
-  TrendingDown,
-  LogOut,
-  Send,
-  WalletIcon,
-  ExternalLink,
-  ArrowLeft,
-} from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
+import { RouteGuard } from "@/components/route-guard";
 import { CryptoWebApi } from "@/lib/cryptowebapi";
 import { CryptoWebApiClient } from 'cryptowebapi-connector-js';
 import { useAccountStore } from "@/store/account";
-import { RouteGuard } from "@/components/route-guard";
 import { Wallet as WalletType, getAllWallets, saveWallet } from "@/lib/accountDb";
 import { encryptPrivateKey } from "@/lib/crypto";
 
@@ -81,10 +91,10 @@ interface Wallet {
   transactions: Transaction[];
 }
 
-
 export default function DashboardPage() {
   const router = useRouter();
   const { lock, db } = useAccountStore();
+  const { toast } = useToast();
 
   const [wallets, setWallets] = useState<WalletType[]>([]);
   const [selectedWallet, setSelectedWallet] = useState<WalletType | null>(null);
@@ -296,640 +306,185 @@ export default function DashboardPage() {
     }
   };
 
-  // Render wallet list view or wallet detail view
   return (
     <RouteGuard>
-      <div className="min-h-screen text-gray-900 bg-white">
-        {selectedWallet ? (
-          // Wallet Detail View
-          <>
-            {/* Header */}
-            <div className="flex items-center gap-4 p-6 border-b border-gray-200 bg-white">
-              <Button variant="ghost" size="icon" onClick={handleBackToList} className="text-gray-600 hover:bg-gray-100">
-                <ArrowLeft className="w-5 h-5" />
+      <div className="min-h-screen bg-[#222222] text-white">
+        <header className="border-b border-[#2a2a2a] p-4">
+          <div className="container mx-auto flex justify-between items-center">
+            <div className="flex items-center space-x-2">
+              <WalletIcon className="h-5 w-5 text-[#a99fec]" />
+              <span className="font-bold text-lg text-[#a99fec]">BluePay Wallet</span>
+            </div>
+            <div className="flex items-center space-x-4">
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={() => setBalanceVisible(!balanceVisible)}
+                className="text-gray-400 hover:text-[#a99fec]"
+              >
+                {balanceVisible ? <EyeOff size={18} /> : <Eye size={18} />}
               </Button>
-              <div>
-                <h1 className="text-xl font-semibold text-gray-900">{selectedWallet.name}</h1>
-                <div className="flex items-center gap-2 text-sm text-gray-500">
-                  <span>{formatAddress(selectedWallet.address)}</span>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6 text-gray-500 hover:text-gray-700"
-                    onClick={() => copyToClipboard(selectedWallet.address)}
-                  >
-                    <Copy className="w-3 h-3" />
-                  </Button>
-                </div>
-              </div>
-              <Badge
-                variant="secondary"
-                className={`ml-auto ${
-                  selectedWallet.network === "ethereum" ? "bg-blue-100 text-blue-800" : "bg-green-100 text-green-800"
-                }`}
+              <Button 
+                variant="ghost" 
+                size="icon"
+                className="text-gray-400 hover:text-[#a99fec]"
               >
-                {selectedWallet.network === "ethereum" ? "Ethereum" : "BNB Chain"}
-              </Badge>
-            </div>
-
-            {/* Balance Section */}
-            <div className="p-6 text-center bg-white">
-              <div className="text-4xl font-bold mb-2 text-gray-900">{formatCurrency(selectedWallet.balanceUSD)}</div>
-              <div
-                className={`flex items-center justify-center gap-2 text-lg ${
-                  selectedWallet.change24h >= 0 ? "text-green-600" : "text-red-600"
-                }`}
+                <Settings size={18} />
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={() => {
+                  lock();
+                  router.push("/login-or-create");
+                }}
+                className="text-gray-400 hover:text-[#a99fec]"
               >
-                {selectedWallet.change24h >= 0 ? <TrendingUp className="w-5 h-5" /> : <TrendingDown className="w-5 h-5" />}
-                <span>
-                  {selectedWallet.change24h >= 0 ? "+" : ""}
-                  {formatCurrency(selectedWallet.change24h)}
-                </span>
-                <span>
-                  {selectedWallet.change24h >= 0 ? "+" : ""}
-                  {selectedWallet.changePercent24h.toFixed(2)}%
-                </span>
-              </div>
+                <LogOut size={18} />
+              </Button>
             </div>
+          </div>
+        </header>
 
-            {/* Action Buttons */}
-            <div className="px-6 mb-8">
-              <div className="flex gap-3 justify-center">
-                <Button
-                  className="bg-blue-600 hover:bg-blue-700 text-white rounded-full px-6 py-3 min-w-[80px]"
-                  onClick={() => {}}
-                >
-                  Receive
-                </Button>
-                <Button
-                  className="bg-blue-600 hover:bg-blue-700 text-white rounded-full px-6 py-3 min-w-[80px]"
-                  onClick={() => {}}
-                >
-                  Buy
-                </Button>
-                <Button
-                  className="bg-blue-600 hover:bg-blue-700 text-white rounded-full px-6 py-3 min-w-[80px]"
-                  onClick={() => router.push("/send")}
-                >
-                  <Send className="w-4 h-4 mr-2" />
-                  Send
-                </Button>
-              </div>
-            </div>
-
-            {/* Tabs */}
-            <div className="px-6">
-              <Tabs defaultValue="tokens" className="w-full">
-                <TabsList className="grid w-full grid-cols-2 bg-gray-100">
-                  <TabsTrigger value="tokens" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white">
-                    Tokens
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="transactions"
-                    className="data-[state=active]:bg-blue-600 data-[state=active]:text-white"
-                  >
-                    Transactions
-                  </TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="tokens" className="space-y-4 mt-6">
-                  {selectedWallet.tokens.map((token, index) => (
-                    <Card key={index} className="bg-white border-gray-200 shadow-sm">
-                      <CardContent className="p-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
-                              <span className="text-sm font-bold text-white">{token.symbol}</span>
-                            </div>
-                            <div>
-                              <div className="font-semibold text-gray-900">{token.name}</div>
-                              <div className="text-sm text-gray-500">
-                                {token.balance.toFixed(4)} {token.symbol}
-                              </div>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <div className="font-semibold text-gray-900">{formatCurrency(token.balanceUSD)}</div>
-                            <div className={`text-sm ${token.change24h >= 0 ? "text-green-600" : "text-red-600"}`}>
-                              {token.change24h >= 0 ? "+" : ""}
-                              {token.change24h.toFixed(2)}%
-                            </div>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </TabsContent>
-
-                <TabsContent value="transactions" className="space-y-4 mt-6">
-                  {selectedWallet.transactions.length === 0 ? (
-                    <div className="text-center py-8 text-gray-500">No transactions found</div>
-                  ) : (
-                    selectedWallet.transactions.map((tx) => (
-                      <Card key={tx.id} className="bg-white border-gray-200 shadow-sm">
-                        <CardContent className="p-4">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <div
-                                className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                                  tx.type === "send" ? "bg-red-100" : "bg-green-100"
-                                }`}
-                              >
-                                {tx.type === "send" ? (
-                                  <ArrowUpRight className="w-5 h-5 text-red-600" />
-                                ) : (
-                                  <ArrowDownLeft className="w-5 h-5 text-green-600" />
-                                )}
-                              </div>
-                              <div>
-                                <div className="font-semibold text-gray-900 capitalize">{tx.type}</div>
-                                <div className="text-sm text-gray-500">
-                                  {tx.type === "send" ? "To" : "From"}: {formatAddress(tx.to || tx.from || "")}
-                                </div>
-                                <div className="text-xs text-gray-400">{formatTime(tx.timestamp)}</div>
-                              </div>
-                            </div>
-                            <div className="text-right">
-                              <div className={`font-semibold ${tx.type === "send" ? "text-red-600" : "text-green-600"}`}>
-                                {tx.type === "send" ? "-" : "+"}
-                                {tx.amount} {tx.symbol}
-                              </div>
-                              <div className="flex items-center gap-1 text-xs text-gray-500">
-                                <Badge variant={tx.status === "confirmed" ? "default" : "secondary"} className="text-xs">
-                                  {tx.status}
-                                </Badge>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-4 w-4 text-gray-500 hover:text-gray-700"
-                                  onClick={() => {}}
-                                >
-                                  <ExternalLink className="w-3 h-3" />
-                                </Button>
-                              </div>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))
-                  )}
-                </TabsContent>
-              </Tabs>
-            </div>
-          </>
-        ) : (
-          // Wallet List View
-          <>
-            {/* Header */}
-            <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-white">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center">
-                  <WalletIcon className="w-6 h-6 text-white" />
-                </div>
-                <h1 className="text-xl font-semibold text-gray-900">BluePay Wallet</h1>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setBalanceVisible(!balanceVisible)}
-                  className="text-gray-600 hover:bg-gray-100"
-                >
-                  {balanceVisible ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="text-gray-600 hover:bg-gray-100"
-                  onClick={() => router.push("/settings")}
-                >
-                  <Settings className="w-5 h-5" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="text-gray-600 hover:bg-gray-100"
-                  onClick={() => {
-                    lock();
-                    router.push("/login-or-create");
-                  }}
-                >
-                  <LogOut className="w-5 h-5" />
-                </Button>
-              </div>
-            </div>
-
-            {/* Total Portfolio Value */}
-            <div className="p-6 text-center bg-white">
-              <div className="text-5xl font-bold mb-2 text-gray-900">
-                {balanceVisible ? formatCurrency(totalBalance) : "••••••••"}
-              </div>
-              <div
-                className={`flex items-center justify-center gap-2 text-lg ${
-                  totalChange >= 0 ? "text-green-600" : "text-red-600"
-                }`}
-              >
-                {totalChange >= 0 ? <TrendingUp className="w-5 h-5" /> : <TrendingDown className="w-5 h-5" />}
-                {balanceVisible ? (
-                  <>
-                    <span>
-                      {totalChange >= 0 ? "+" : ""}
-                      {formatCurrency(totalChange)}
-                    </span>
-                    <span>
-                      {totalChange >= 0 ? "+" : ""}
-                      {totalChangePercent.toFixed(2)}%
-                    </span>
-                  </>
-                ) : (
-                  <span>••••••••</span>
-                )}
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="px-6 mb-8">
-              <div className="flex gap-3 justify-center">
-                <Button
-                  className="bg-blue-600 hover:bg-blue-700 text-white rounded-full px-6 py-3 min-w-[80px]"
-                  onClick={() => {}}
-                >
-                  Receive
-                </Button>
-                <Button
-                  className="bg-blue-600 hover:bg-blue-700 text-white rounded-full px-6 py-3 min-w-[80px]"
-                  onClick={() => {}}
-                >
-                  Buy
-                </Button>
-                <Button
-                  className="bg-blue-600 hover:bg-blue-700 text-white rounded-full px-6 py-3 min-w-[80px]"
-                  onClick={() => router.push("/send")}
-                >
-                  Send
-                </Button>
-                <Button
-                  onClick={() => setShowCreateModal(true)}
-                  className="bg-green-600 hover:bg-green-700 text-white rounded-full px-6 py-3 min-w-[80px]"
-                >
-                  Create
-                </Button>
-              </div>
-            </div>
-
-            {/* Wallets List */}
-            <div className="px-6 space-y-4">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold text-gray-900">Your Wallets</h2>
-              </div>
-
-              {wallets.map((wallet) => (
-                <Card
-                  key={wallet.id}
-                  className="bg-white border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer shadow-sm"
-                  onClick={() => handleWalletSelect(wallet)}
-                >
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
-                          <span className="text-lg font-bold text-white">{wallet.name.charAt(0).toUpperCase()}</span>
-                        </div>
-                        <div>
-                          <div className="font-semibold text-gray-900">{wallet.name}</div>
-                          <div className="text-sm text-gray-500">{formatAddress(wallet.address)}</div>
-                          <Badge
-                            variant="secondary"
-                            className={`mt-1 text-xs ${
-                              wallet.network === "ethereum" ? "bg-blue-100 text-blue-800" : "bg-green-100 text-green-800"
-                            }`}
-                          >
-                            {wallet.network === "ethereum" ? "Ethereum" : "BNB Chain"}
-                          </Badge>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="font-semibold text-gray-900">
-                          {balanceVisible ? formatCurrency(wallet.balanceUSD) : "••••••••"}
-                        </div>
-                        <div
-                          className={`text-sm flex items-center gap-1 ${
-                            wallet.change24h >= 0 ? "text-green-600" : "text-red-600"
-                          }`}
-                        >
-                          {wallet.change24h >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                          {balanceVisible ? (
-                            <span>
-                              {wallet.change24h >= 0 ? "+" : ""}
-                              {wallet.changePercent24h.toFixed(2)}%
-                            </span>
-                          ) : (
-                            <span>••••</span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </>
-        )}
-
-        {/* Add Wallet Modal */}
-        <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
-          <DialogContent className="bg-white border-gray-200 text-gray-900">
-            <DialogHeader>
-              <DialogTitle className="text-gray-900">Add New Wallet</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleAddWallet} className="space-y-4">
+        <main className="container mx-auto p-4 md:p-6">
+          <div className="mb-8">
+            <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-2">
               <div>
-                <Label htmlFor="name" className="text-gray-700">
-                  Wallet Name
-                </Label>
-                <Input
-                  id="name"
-                  value={newWalletForm.name}
-                  onChange={(e) => setNewWalletForm({ ...newWalletForm, name: e.target.value })}
-                  placeholder="My Wallet"
-                  className="bg-white border-gray-300 text-gray-900"
-                  required
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="network" className="text-gray-700">
-                  Network
-                </Label>
-                <Select
-                  value={newWalletForm.network}
-                  onValueChange={(value: "ethereum" | "bnb") => setNewWalletForm({ ...newWalletForm, network: value })}
-                >
-                  <SelectTrigger className="bg-white border-gray-300 text-gray-900">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-white border-gray-200">
-                    <SelectItem value="ethereum">Ethereum</SelectItem>
-                    <SelectItem value="bnb">BNB Chain</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label htmlFor="address" className="text-gray-700">
-                  Wallet Address
-                </Label>
-                <Input
-                  id="address"
-                  value={newWalletForm.address}
-                  onChange={(e) => setNewWalletForm({ ...newWalletForm, address: e.target.value })}
-                  placeholder={
-                    newWalletForm.network === "ethereum" ? "0x..." : "bnb..."
-                  }
-                  className="bg-white border-gray-300 text-gray-900"
-                  required
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="balance" className="text-gray-700">
-                    Balance
-                  </Label>
-                  <Input
-                    id="balance"
-                    type="number"
-                    step="0.0001"
-                    value={newWalletForm.balance}
-                    onChange={(e) => setNewWalletForm({ ...newWalletForm, balance: e.target.value })}
-                    placeholder="0.0"
-                    className="bg-white border-gray-300 text-gray-900"
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="balanceUSD" className="text-gray-700">
-                    Balance (USD)
-                  </Label>
-                  <Input
-                    id="balanceUSD"
-                    type="number"
-                    step="0.01"
-                    value={newWalletForm.balanceUSD}
-                    onChange={(e) => setNewWalletForm({ ...newWalletForm, balanceUSD: e.target.value })}
-                    placeholder="0.00"
-                    className="bg-white border-gray-300 text-gray-900"
-                    required
-                  />
+                <h1 className="text-2xl font-bold mb-1 text-white">Portfolio</h1>
+                <div className="flex items-center space-x-2">
+                  <div className="text-3xl font-bold text-[#a99fec]">
+                    {balanceVisible 
+                      ? formatCurrency(totalBalance) 
+                      : "••••••"
+                    }
+                  </div>
+                  <Badge className={`${totalChangePercent >= 0 ? 'bg-green-900/20 text-green-500' : 'bg-red-900/20 text-red-500'} border-0`}>
+                    {totalChangePercent >= 0 
+                      ? <TrendingUp className="w-3 h-3 mr-1" /> 
+                      : <TrendingDown className="w-3 h-3 mr-1" />
+                    }
+                    {totalChangePercent.toFixed(2)}%
+                  </Badge>
                 </div>
               </div>
-
-              <div className="flex gap-3 pt-4">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setShowAddModal(false)}
-                  className="flex-1 border-gray-300 text-gray-700 hover:bg-gray-50"
+              <div className="flex space-x-2 mt-4 sm:mt-0">
+                <Button 
+                  onClick={() => setShowAddModal(true)}
+                  className="bg-[#a99fec] text-[#222222] hover:bg-[#9888db]"
                 >
-                  Cancel
-                </Button>
-                <Button type="submit" className="flex-1 bg-blue-600 hover:bg-blue-700 text-white">
+                  <Plus className="w-4 h-4 mr-2" />
                   Add Wallet
                 </Button>
               </div>
-            </form>
-          </DialogContent>
-        </Dialog>
-
-        {/* Create Wallet Modal */}
-        <Dialog open={showCreateModal} onOpenChange={setShowCreateModal}>
-          <DialogContent className="bg-white border-gray-200 text-gray-900">
-            <DialogHeader>
-              <DialogTitle className="text-gray-900">Create New Wallet</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleCreateWallet} className="space-y-4">
-              <div>
-                <Label htmlFor="createName" className="text-gray-700">
-                  Wallet Name
-                </Label>
-                <Input
-                  id="createName"
-                  value={createWalletForm.name}
-                  onChange={(e) => setCreateWalletForm({ ...createWalletForm, name: e.target.value })}
-                  placeholder="My Wallet"
-                  className="bg-white border-gray-300 text-gray-900"
-                  required
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="createNetwork" className="text-gray-700">
-                  Network
-                </Label>
-                <Select
-                  value={createWalletForm.network}
-                  onValueChange={(value: "ethereum" | "bnb") => setCreateWalletForm({ ...createWalletForm, network: value })}
-                >
-                  <SelectTrigger className="bg-white border-gray-300 text-gray-900">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-white border-gray-200">
-                    <SelectItem value="ethereum">Ethereum</SelectItem>
-                    <SelectItem value="bnb">BNB Chain</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label htmlFor="createPassphrase" className="text-gray-700">
-                  Passphrase
-                </Label>
-                <Input
-                  id="createPassphrase"
-                  type="password"
-                  value={createWalletForm.passphrase}
-                  onChange={(e) => setCreateWalletForm({ ...createWalletForm, passphrase: e.target.value })}
-                  placeholder="Enter a secure passphrase"
-                  className="bg-white border-gray-300 text-gray-900"
-                  required
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  This passphrase will be used to encrypt your wallet's private key and mnemonic.
-                  Make sure to remember it as it cannot be recovered.
-                </p>
-              </div>
-
-              <div className="flex gap-3 pt-4">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setShowCreateModal(false)}
-                  className="flex-1 border-gray-300 text-gray-700 hover:bg-gray-50"
-                  disabled={isCreatingWallet}
-                >
-                  Cancel
-                </Button>
-                <Button 
-                  type="submit" 
-                  className="flex-1 bg-green-600 hover:bg-green-700 text-white"
-                  disabled={isCreatingWallet}
-                >
-                  {isCreatingWallet ? "Creating..." : "Create Wallet"}
-                </Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
-
-        {/* Wallet Creation Success Modal */}
-        <Dialog open={showSuccessModal} onOpenChange={setShowSuccessModal}>
-          <DialogContent className="bg-white border-gray-200 text-gray-900 max-w-2xl">
-            <DialogHeader>
-              <DialogTitle className="text-gray-900 text-center">Wallet Created Successfully!</DialogTitle>
-            </DialogHeader>
-
-            <div className="space-y-6 py-4">
-              <div className="text-center">
-                <p className="text-sm text-gray-600 mb-4">
-                  Your wallet has been created and saved. Please save the following information in a secure location.
-                  <strong className="block mt-2 text-red-600">
-                    Warning: Never share your private key or mnemonic phrase with anyone!
-                  </strong>
-                </p>
-              </div>
-
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label className="text-gray-700 font-semibold">Wallet Name</Label>
-                  <div className="flex items-center justify-between bg-gray-50 p-3 rounded-md">
-                    <span className="text-gray-900">{newlyCreatedWallet?.name}</span>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-gray-700 font-semibold">Network</Label>
-                  <div className="flex items-center justify-between bg-gray-50 p-3 rounded-md">
-                    <span className="text-gray-900">
-                      {newlyCreatedWallet?.network === "ethereum" ? "Ethereum" : "BNB Chain"}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-gray-700 font-semibold">Wallet Address</Label>
-                  <div className="flex items-center justify-between bg-gray-50 p-3 rounded-md">
-                    <span className="text-gray-900 text-sm break-all">{newlyCreatedWallet?.address}</span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-gray-500 hover:text-gray-700"
-                      onClick={() => copyToClipboard(newlyCreatedWallet?.address || "")}
-                    >
-                      <Copy className="w-4 h-4 mr-1" />
-                      Copy
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-gray-700 font-semibold">Private Key</Label>
-                  <div className="flex items-center justify-between bg-gray-50 p-3 rounded-md">
-                    <span className="text-gray-900 text-sm break-all">{newlyCreatedWallet?.privateKey}</span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-gray-500 hover:text-gray-700"
-                      onClick={() => copyToClipboard(newlyCreatedWallet?.privateKey || "")}
-                    >
-                      <Copy className="w-4 h-4 mr-1" />
-                      Copy
-                    </Button>
-                  </div>
-                </div>
-
-                {newlyCreatedWallet?.mnemonic && (
-                  <div className="space-y-2">
-                    <Label className="text-gray-700 font-semibold">Mnemonic Phrase (Seed Phrase)</Label>
-                    <div className="flex items-center justify-between bg-gray-50 p-3 rounded-md">
-                      <span className="text-gray-900 text-sm break-all">{newlyCreatedWallet.mnemonic}</span>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-gray-500 hover:text-gray-700"
-                        onClick={() => copyToClipboard(newlyCreatedWallet.mnemonic || "")}
-                      >
-                        <Copy className="w-4 h-4 mr-1" />
-                        Copy
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4 text-sm text-yellow-800">
-                <p className="font-semibold mb-2">Important Security Information:</p>
-                <ul className="list-disc pl-5 space-y-1">
-                  <li>Write down your mnemonic phrase and keep it in a secure location.</li>
-                  <li>Store your private key securely - it provides full access to your wallet.</li>
-                  <li>Never share these details with anyone or enter them on untrusted websites.</li>
-                  <li>Make multiple backups of this information.</li>
-                </ul>
-              </div>
             </div>
-
-            <div className="flex justify-center pt-4">
-              <Button 
-                onClick={() => {
-                  setShowSuccessModal(false);
-                  setNewlyCreatedWallet(null);
-                }}
-                className="bg-green-600 hover:bg-green-700 text-white px-8"
-              >
-                I've Saved My Wallet Information
-              </Button>
+          </div>
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-white">Your Wallets</h2>
             </div>
-          </DialogContent>
-        </Dialog>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {wallets.length > 0 ? (
+                wallets.map((wallet) => (
+                  <Card 
+                    key={wallet.id} 
+                    className="bg-[#2a2a2a] border-[#2a2a2a] hover:border-[#a99fec] border transition-colors overflow-hidden cursor-pointer"
+                    onClick={() => setSelectedWallet(wallet)}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex justify-between items-start mb-3">
+                        <div className="flex items-center">
+                          {wallet.network === "ethereum" ? (
+                            <div className="w-8 h-8 rounded-full bg-blue-600/20 flex items-center justify-center mr-3">
+                              <svg className="w-5 h-5 text-blue-500" viewBox="0 0 784.37 1277.39" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M392.07 0L383.5 29.11V873.74L392.07 882.29L784.13 650.54L392.07 0Z" fill="#343434"/>
+                                <path d="M392.07 0L0 650.54L392.07 882.29V472.33V0Z" fill="#8C8C8C"/>
+                                <path d="M392.07 956.52L387.24 962.41V1263.28L392.07 1277.38L784.37 724.89L392.07 956.52Z" fill="#3C3C3B"/>
+                                <path d="M392.07 1277.38V956.52L0 724.89L392.07 1277.38Z" fill="#8C8C8C"/>
+                                <path d="M392.07 882.29L784.13 650.54L392.07 472.33V882.29Z" fill="#141414"/>
+                                <path d="M0 650.54L392.07 882.29V472.33L0 650.54Z" fill="#393939"/>
+                              </svg>
+                            </div>
+                          ) : (
+                            <div className="w-8 h-8 rounded-full bg-yellow-600/20 flex items-center justify-center mr-3">
+                              <svg className="w-5 h-5 text-yellow-500" viewBox="0 0 2500 2500" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M764.48,1050.52,1250,565l485.75,485.73,282.5-282.5L1250,0,482,768l282.49,282.5" fill="#F0B90B"/>
+                                <path d="M302.61,1250,585.11,967.52,302.61,685,20.11,967.52ZM764.48,1449.51l485.52-485.75,282.5,282.5-485.52,485.75L764.48,2014.5,481.76,1732" fill="#F0B90B"/>
+                                <path d="M397.13,1267.42,1250,420.55l852.87,846.87L1733.16,1637,1250,1154l-483.45,483.44-369.42-369.42" fill="#F0B90B"/>
+                                <path d="M1250,1733.76l483.16-483.44,282.49,282.5L1250,2500,482.48,1732.5,764.48,1450" fill="#F0B90B"/>
+                              </svg>
+                            </div>
+                          )}
+                          <div>
+                            <div className="font-semibold text-white">{wallet.name}</div>
+                            <div className="text-xs text-gray-400 flex items-center">
+                              {formatAddress(wallet.address)}
+                              <button 
+                                className="ml-1 text-gray-400 hover:text-[#a99fec]"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  copyToClipboard(wallet.address);
+                                  toast.show({
+                                    title: "Address copied",
+                                    description: "Wallet address copied to clipboard",
+                                  });
+                                }}
+                              >
+                                <Copy size={12} />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                        <Badge className="bg-[#2a2a2a] text-[#a99fec] border border-[#3a3a3a]">
+                          {wallet.network === "ethereum" ? "Ethereum" : "BNB Chain"}
+                        </Badge>
+                      </div>
+                      
+                      <div className="space-y-1">
+                        <div className="font-bold text-xl text-white">
+                          {balanceVisible 
+                            ? formatCurrency(wallet.balanceUSD || 0) 
+                            : "••••••"
+                          }
+                        </div>
+                        <div className="flex items-center text-sm">
+                          <span className="text-gray-400 mr-2">
+                            {balanceVisible 
+                              ? `${wallet.balance || 0} ${wallet.network === "ethereum" ? "ETH" : "BNB"}` 
+                              : "••••••"
+                            }
+                          </span>
+                          <Badge className={`${wallet.changePercent24h >= 0 ? 'bg-green-900/20 text-green-500' : 'bg-red-900/20 text-red-500'} border-0 text-xs`}>
+                            {wallet.changePercent24h >= 0 
+                              ? <TrendingUp className="w-3 h-3 mr-1" /> 
+                              : <TrendingDown className="w-3 h-3 mr-1" />
+                            }
+                            {wallet.changePercent24h.toFixed(2)}%
+                          </Badge>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              ) : (
+                <div className="col-span-full py-10 flex flex-col items-center justify-center bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg text-center">
+                  <WalletIcon className="h-12 w-12 text-[#a99fec] opacity-50 mb-4" />
+                  <h3 className="text-lg font-medium text-white mb-2">No wallets yet</h3>
+                  <p className="text-gray-400 max-w-md mb-6">
+                    Add your first wallet to start managing your crypto assets
+                  </p>
+                  <Button 
+                    onClick={() => setShowCreateModal(true)}
+                    className="bg-[#a99fec] text-[#222222] hover:bg-[#9888db]"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Create New Wallet
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+        </main>
       </div>
     </RouteGuard>
   );

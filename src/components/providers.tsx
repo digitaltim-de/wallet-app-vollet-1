@@ -8,9 +8,7 @@ import { Toaster } from "@/components/ui/toast";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      refetchOnWindowFocus: false,
-      retry: 1,
-      staleTime: 30 * 1000, // 30 seconds
+      staleTime: 60 * 1000,
     },
   },
 });
