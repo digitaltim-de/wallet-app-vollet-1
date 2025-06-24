@@ -57,6 +57,20 @@ module.exports = {
             },
             spacing: {
                 '4': '1rem'
+            },
+            keyframes: {
+                enter: {
+                    from: { opacity: 0, transform: 'translateY(-8px)' },
+                    to: { opacity: 1, transform: 'translateY(0)' }
+                },
+                leave: {
+                    from: { opacity: 1, transform: 'translateY(0)' },
+                    to: { opacity: 0, transform: 'translateY(-8px)' }
+                }
+            },
+            animation: {
+                enter: 'enter 0.2s ease-out',
+                leave: 'leave 0.15s ease-in forwards'
             }
         }
     },

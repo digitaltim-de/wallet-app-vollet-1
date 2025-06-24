@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -28,25 +27,30 @@ import {
   Send,
 } from "lucide-react";
 import { CryptoWebApi } from "@/lib/cryptowebapi";
+import { useAccountStore } from "@/store/account";
+import { RouteGuard } from "@/components/route-guard";
 
 // Initialize API client
 const apiClient = new CryptoWebApi(process.env.NEXT_PUBLIC_CRYPTOWEBAPI_KEY || "");
 
+// Placeholder wallet data - in a real app, this would come from the account store
+// or be stored in the IndexedDB
+const PLACEHOLDER_WALLET = {
+  address: "0x1234567890abcdef1234567890abcdef12345678",
+  network: "ethereum" as const
+};
+
 export default function DashboardPage() {
   const router = useRouter();
-  const { data: session, status } = useSession({
-    required: true,
-    onUnauthenticated() {
-      router.push("/login");
-    },
-  });
-  
+  const { lock } = useAccountStore();
+
   const [balanceVisible, setBalanceVisible] = useState(true);
-  
-  // Get wallet address and network from session
-  const address = session?.user?.address as string;
-  const network = session?.user?.network as "ethereum" | "bnb";
-  
+
+  // Get wallet address and network
+  // In a real implementation, this would come from the account store
+  const address = PLACEHOLDER_WALLET.address;
+  const network = PLACEHOLDER_WALLET.network;
+
   // Fetch wallet balance
   const { data: balanceData, isLoading: balanceLoading, error: balanceError } = useQuery({
     queryKey: ["balance", network, address],
@@ -54,7 +58,7 @@ export default function DashboardPage() {
     enabled: !!address && !!network,
     refetchInterval: 30000, // Refetch every 30 seconds
   });
-  
+
   // Fetch transaction history
   const { data: txData, isLoading: txLoading, error: txError } = useQuery({
     queryKey: ["transactions", network, address],
@@ -62,17 +66,17 @@ export default function DashboardPage() {
     enabled: !!address && !!network,
     refetchInterval: 60000, // Refetch every minute
   });
-  
+
   // Handle navigation to send page
   const handleSend = () => {
     router.push("/send");
   };
-  
+
   // Handle navigation to settings page
   const handleSettings = () => {
     router.push("/settings");
   };
-  
+
   // Format currency value
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("en-US", {
@@ -80,20 +84,9 @@ export default function DashboardPage() {
       currency: "USD",
     }).format(value);
   };
-  
-  // Loading state
-  if (status === "loading" || !session) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading your wallet...</p>
-        </div>
-      </div>
-    );
-  }
-  
+
   return (
+    <RouteGuard>
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <header className="bg-primary p-4 text-white">
@@ -115,14 +108,17 @@ export default function DashboardPage() {
               variant="ghost"
               size="icon"
               className="text-white hover:bg-primary/80"
-              onClick={() => router.push("/login")}
+              onClick={() => {
+                lock();
+                router.push("/login-or-create");
+              }}
             >
               <LogOut className="w-5 h-5" />
             </Button>
           </div>
         </div>
       </header>
-      
+
       <main className="container mx-auto p-4 space-y-6">
         {/* Wallet Info */}
         <Card className="shadow-lg">
@@ -166,7 +162,7 @@ export default function DashboardPage() {
                     : "••••••••"}
                 </div>
               </div>
-              
+
               <div className="flex items-center text-sm text-gray-600 space-x-1">
                 <div className="truncate flex-1">{address}</div>
                 <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -188,7 +184,7 @@ export default function DashboardPage() {
             </div>
           </CardFooter>
         </Card>
-        
+
         {/* Token Balances */}
         <Card className="shadow-lg">
           <CardHeader>
@@ -234,7 +230,7 @@ export default function DashboardPage() {
             )}
           </CardContent>
         </Card>
-        
+
         {/* Transaction History */}
         <Card className="shadow-lg">
           <CardHeader>
@@ -295,7 +291,7 @@ export default function DashboardPage() {
             </Button>
           </CardFooter>
         </Card>
-        
+
         {/* Security Tips */}
         <Card className="shadow-lg bg-secondary">
           <CardHeader>
@@ -329,5 +325,6 @@ export default function DashboardPage() {
         </Card>
       </main>
     </div>
+    </RouteGuard>
   );
 }
