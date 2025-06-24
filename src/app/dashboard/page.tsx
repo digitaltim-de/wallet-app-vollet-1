@@ -38,6 +38,7 @@ import { CryptoWebApiClient } from 'cryptowebapi-connector-js';
 import { useAccountStore } from "@/store/account";
 import { RouteGuard } from "@/components/route-guard";
 import { Wallet as WalletType, getAllWallets, saveWallet } from "@/lib/accountDb";
+import { encryptPrivateKey } from "@/lib/crypto";
 
 // Initialize API clients
 const apiClient = new CryptoWebApi(process.env.NEXT_PUBLIC_CRYPTOWEBAPI_KEY || "");
@@ -89,7 +90,15 @@ export default function DashboardPage() {
   const [selectedWallet, setSelectedWallet] = useState<WalletType | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [balanceVisible, setBalanceVisible] = useState(true);
+  const [newlyCreatedWallet, setNewlyCreatedWallet] = useState<{
+    address: string;
+    privateKey: string;
+    mnemonic?: string;
+    network: "ethereum" | "bnb";
+    name: string;
+  } | null>(null);
 
   // Load wallets from IndexedDB on component mount
   useEffect(() => {
@@ -120,6 +129,7 @@ export default function DashboardPage() {
   const [createWalletForm, setCreateWalletForm] = useState({
     name: "",
     network: "ethereum" as "ethereum" | "bnb",
+    passphrase: "",
   });
 
   // Loading state for wallet creation
@@ -209,7 +219,7 @@ export default function DashboardPage() {
   const handleCreateWallet = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!createWalletForm.name || !createWalletForm.network || !db) {
+    if (!createWalletForm.name || !createWalletForm.network || !createWalletForm.passphrase || !db) {
       return;
     }
 
@@ -220,6 +230,21 @@ export default function DashboardPage() {
       const newWallet = await cryptoWebApiClient.createWallet({ 
         network: createWalletForm.network 
       });
+
+      // Check if privateKey exists in the response
+      if (!newWallet.key) {
+        console.log(newWallet);
+        throw new Error('Private key is missing in the wallet creation response');
+      }
+
+      // Encrypt private key and mnemonic with passphrase
+      const encryptedPrivateKey = await encryptPrivateKey(newWallet.key, createWalletForm.passphrase);
+
+      // Check if mnemonic exists in the response
+      let encryptedMnemonic = undefined;
+      if (newWallet.mnemonic && true) {
+        encryptedMnemonic = await encryptPrivateKey(newWallet.mnemonic, createWalletForm.passphrase);
+      }
 
       // Create wallet object
       const walletData: WalletType = {
@@ -233,6 +258,8 @@ export default function DashboardPage() {
         changePercent24h: 0,
         tokens: [],
         transactions: [],
+        encryptedPrivateKey,
+        encryptedMnemonic,
       };
 
       // Save to IndexedDB
@@ -240,13 +267,30 @@ export default function DashboardPage() {
 
       // Update state
       setWallets([...wallets, walletData]);
+
+      // Store the newly created wallet data for the success screen
+      setNewlyCreatedWallet({
+        address: newWallet.address,
+        privateKey: newWallet.key,
+        mnemonic: newWallet.mnemonic,
+        network: createWalletForm.network,
+        name: createWalletForm.name
+      });
+
+      // Show success modal instead of closing create modal
       setShowCreateModal(false);
+      setShowSuccessModal(true);
+
+      // Reset form
       setCreateWalletForm({
         name: "",
         network: "ethereum",
+        passphrase: "",
       });
     } catch (error) {
       console.error("Error creating wallet:", error);
+      // Show error message to the user
+      alert(`Error creating wallet2: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsCreatingWallet(false);
     }
@@ -736,6 +780,25 @@ export default function DashboardPage() {
                 </Select>
               </div>
 
+              <div>
+                <Label htmlFor="createPassphrase" className="text-gray-700">
+                  Passphrase
+                </Label>
+                <Input
+                  id="createPassphrase"
+                  type="password"
+                  value={createWalletForm.passphrase}
+                  onChange={(e) => setCreateWalletForm({ ...createWalletForm, passphrase: e.target.value })}
+                  placeholder="Enter a secure passphrase"
+                  className="bg-white border-gray-300 text-gray-900"
+                  required
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  This passphrase will be used to encrypt your wallet's private key and mnemonic.
+                  Make sure to remember it as it cannot be recovered.
+                </p>
+              </div>
+
               <div className="flex gap-3 pt-4">
                 <Button
                   type="button"
@@ -755,6 +818,116 @@ export default function DashboardPage() {
                 </Button>
               </div>
             </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Wallet Creation Success Modal */}
+        <Dialog open={showSuccessModal} onOpenChange={setShowSuccessModal}>
+          <DialogContent className="bg-white border-gray-200 text-gray-900 max-w-2xl">
+            <DialogHeader>
+              <DialogTitle className="text-gray-900 text-center">Wallet Created Successfully!</DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-6 py-4">
+              <div className="text-center">
+                <p className="text-sm text-gray-600 mb-4">
+                  Your wallet has been created and saved. Please save the following information in a secure location.
+                  <strong className="block mt-2 text-red-600">
+                    Warning: Never share your private key or mnemonic phrase with anyone!
+                  </strong>
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-gray-700 font-semibold">Wallet Name</Label>
+                  <div className="flex items-center justify-between bg-gray-50 p-3 rounded-md">
+                    <span className="text-gray-900">{newlyCreatedWallet?.name}</span>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-gray-700 font-semibold">Network</Label>
+                  <div className="flex items-center justify-between bg-gray-50 p-3 rounded-md">
+                    <span className="text-gray-900">
+                      {newlyCreatedWallet?.network === "ethereum" ? "Ethereum" : "BNB Chain"}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-gray-700 font-semibold">Wallet Address</Label>
+                  <div className="flex items-center justify-between bg-gray-50 p-3 rounded-md">
+                    <span className="text-gray-900 text-sm break-all">{newlyCreatedWallet?.address}</span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-gray-500 hover:text-gray-700"
+                      onClick={() => copyToClipboard(newlyCreatedWallet?.address || "")}
+                    >
+                      <Copy className="w-4 h-4 mr-1" />
+                      Copy
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-gray-700 font-semibold">Private Key</Label>
+                  <div className="flex items-center justify-between bg-gray-50 p-3 rounded-md">
+                    <span className="text-gray-900 text-sm break-all">{newlyCreatedWallet?.privateKey}</span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-gray-500 hover:text-gray-700"
+                      onClick={() => copyToClipboard(newlyCreatedWallet?.privateKey || "")}
+                    >
+                      <Copy className="w-4 h-4 mr-1" />
+                      Copy
+                    </Button>
+                  </div>
+                </div>
+
+                {newlyCreatedWallet?.mnemonic && (
+                  <div className="space-y-2">
+                    <Label className="text-gray-700 font-semibold">Mnemonic Phrase (Seed Phrase)</Label>
+                    <div className="flex items-center justify-between bg-gray-50 p-3 rounded-md">
+                      <span className="text-gray-900 text-sm break-all">{newlyCreatedWallet.mnemonic}</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-gray-500 hover:text-gray-700"
+                        onClick={() => copyToClipboard(newlyCreatedWallet.mnemonic || "")}
+                      >
+                        <Copy className="w-4 h-4 mr-1" />
+                        Copy
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4 text-sm text-yellow-800">
+                <p className="font-semibold mb-2">Important Security Information:</p>
+                <ul className="list-disc pl-5 space-y-1">
+                  <li>Write down your mnemonic phrase and keep it in a secure location.</li>
+                  <li>Store your private key securely - it provides full access to your wallet.</li>
+                  <li>Never share these details with anyone or enter them on untrusted websites.</li>
+                  <li>Make multiple backups of this information.</li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="flex justify-center pt-4">
+              <Button 
+                onClick={() => {
+                  setShowSuccessModal(false);
+                  setNewlyCreatedWallet(null);
+                }}
+                className="bg-green-600 hover:bg-green-700 text-white px-8"
+              >
+                I've Saved My Wallet Information
+              </Button>
+            </div>
           </DialogContent>
         </Dialog>
       </div>

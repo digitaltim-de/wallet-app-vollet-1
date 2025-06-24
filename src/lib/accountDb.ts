@@ -39,6 +39,8 @@ export interface Wallet {
     status: 'pending' | 'confirmed' | 'failed';
     hash: string;
   }>;
+  encryptedPrivateKey?: string; // Encrypted private key
+  encryptedMnemonic?: string;   // Encrypted mnemonic (seed phrase)
   createdAt?: number;
 }
 

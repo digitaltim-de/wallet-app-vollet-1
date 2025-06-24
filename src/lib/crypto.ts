@@ -152,6 +152,11 @@ export function secureErase(buffer: Uint8Array | Buffer): void {
  * Converts a hexadecimal string to a Uint8Array
  */
 function hexToBytes(hex: string): Uint8Array {
+  // Check if hex is undefined or null
+  if (!hex) {
+    throw new Error('Invalid hex string: undefined or null');
+  }
+
   // Remove '0x' prefix if present
   hex = hex.startsWith('0x') ? hex.slice(2) : hex;
 
