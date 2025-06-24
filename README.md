@@ -1,4 +1,4 @@
-# Volet  Wallet App — Lightweight Browser Wallet for Ethereum & BNB
+# BluePay Wallet — Secure Web Wallet for Ethereum & BNB Chain
 
 <p align="center">
   <img src="public/bluepay-logo.svg" width="140" alt="BluePay Logo" />
@@ -6,7 +6,7 @@
 
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Next.js 14](https://img.shields.io/badge/next.js-14-blue)](https://nextjs.org/)
-[![API Provider](https://img.shields.io/badge/data-source-cryptowebapi.com-0070e0)](https://cryptowebapi.com)
+[![API Provider](https://img.shields.io/badge/API_Provider-cryptowebapi.com-0070e0)](https://cryptowebapi.com)
 
 **BluePay Wallet** is an open-source, browser-based Web3 wallet focused on a clean user experience and straightforward key management.  
 Blockchain data is fetched through a public HTTP API that follows the endpoints documented at **cryptowebapi.com**; any service implementing the same schema will work out of the box.
@@ -43,7 +43,25 @@ cp .env.example .env.local
 pnpm dev          # http://localhost:3000
 ```
 
-Need a key? Most users grab one in a minute at the reference implementation’s site: **cryptowebapi.com**.
+Need a key? Most users grab one in a minute at the reference implementation's site: **cryptowebapi.com**.
+
+## 🐳 Docker Deployment
+
+```bash
+# Build the Docker image
+docker build -t bluepay-wallet .
+
+# Run the container
+docker run -p 3000:3000 \
+  -e NEXTAUTH_SECRET=your_secure_secret \
+  -e CRYPTOWEBAPI_KEY=your_api_key \
+  bluepay-wallet
+```
+
+For production deployment, make sure to:
+1. Set a strong `NEXTAUTH_SECRET` for session encryption
+2. Provide your `CRYPTOWEBAPI_KEY` for API access
+3. Consider setting up a reverse proxy with HTTPS
 
 ---
 

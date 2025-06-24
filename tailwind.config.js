@@ -10,12 +10,12 @@ module.exports = {
         extend: {
             colors: {
                 primary: {
-                    DEFAULT: 'hsl(var(--primary))',
-                    foreground: 'hsl(var(--primary-foreground))'
+                    DEFAULT: '#0070E0',   // PayPal Blue
+                    foreground: '#ffffff'
                 },
                 secondary: {
-                    DEFAULT: 'hsl(var(--secondary))',
-                    foreground: 'hsl(var(--secondary-foreground))'
+                    DEFAULT: '#E6F0FF',
+                    foreground: '#003087'
                 },
                 background: 'hsl(var(--background))',
                 foreground: 'hsl(var(--foreground))',
@@ -51,9 +51,9 @@ module.exports = {
                 }
             },
             borderRadius: {
-                lg: 'var(--radius)',
-                md: 'calc(var(--radius) - 2px)',
-                sm: 'calc(var(--radius) - 4px)'
+                lg: '24px',  // Design rule: 24px corner radius
+                md: '16px',
+                sm: '8px'
             },
             spacing: {
                 '4': '1rem'

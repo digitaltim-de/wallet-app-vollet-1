@@ -15,8 +15,10 @@ interface WalletDB extends DBSchema {
     key: string; // address as the key
     value: {
       address: string;
-      encryptedKey: string;
       network: 'ethereum' | 'bnb';
+      salt: Uint8Array;
+      iv: Uint8Array;
+      ciphertext: Uint8Array;
       createdAt: number;
     };
     indexes: {
@@ -27,7 +29,7 @@ interface WalletDB extends DBSchema {
 }
 
 // Database name and version
-const DB_NAME = 'wollet-db';
+const DB_NAME = 'bluepay';
 const DB_VERSION = 1;
 
 // Database connection
@@ -44,34 +46,43 @@ export function initDB(): Promise<IDBPDatabase<WalletDB>> {
         const walletStore = db.createObjectStore('wallets', {
           keyPath: 'address'
         });
-        
+
         // Create indexes
         walletStore.createIndex('by-network', 'network');
         walletStore.createIndex('by-created', 'createdAt');
+
+        // Request persistent storage
+        if (navigator.storage && navigator.storage.persist) {
+          navigator.storage.persist().then(isPersisted => {
+            console.log(`Persistent storage ${isPersisted ? 'granted' : 'denied'}`);
+          });
+        }
       }
     });
   }
-  
+
   return dbPromise;
 }
 
 /**
- * Store a wallet in the database
+ * Save a wallet in the database
  * 
  * @param wallet - The wallet data to store
  * @returns A Promise that resolves when the wallet is stored
  */
-export async function storeWallet(wallet: {
+export async function saveWallet(wallet: {
   address: string;
-  encryptedKey: string;
   network: 'ethereum' | 'bnb';
+  salt: Uint8Array;
+  iv: Uint8Array;
+  ciphertext: Uint8Array;
 }): Promise<void> {
   const db = await initDB();
   const walletData = {
     ...wallet,
     createdAt: Date.now()
   };
-  
+
   await db.put('wallets', walletData);
 }
 
@@ -83,8 +94,10 @@ export async function storeWallet(wallet: {
  */
 export async function getWallet(address: string): Promise<{
   address: string;
-  encryptedKey: string;
   network: 'ethereum' | 'bnb';
+  salt: Uint8Array;
+  iv: Uint8Array;
+  ciphertext: Uint8Array;
   createdAt: number;
 } | undefined> {
   const db = await initDB();
@@ -98,8 +111,10 @@ export async function getWallet(address: string): Promise<{
  */
 export async function getAllWallets(): Promise<{
   address: string;
-  encryptedKey: string;
   network: 'ethereum' | 'bnb';
+  salt: Uint8Array;
+  iv: Uint8Array;
+  ciphertext: Uint8Array;
   createdAt: number;
 }[]> {
   const db = await initDB();
@@ -114,8 +129,10 @@ export async function getAllWallets(): Promise<{
  */
 export async function getWalletsByNetwork(network: 'ethereum' | 'bnb'): Promise<{
   address: string;
-  encryptedKey: string;
   network: 'ethereum' | 'bnb';
+  salt: Uint8Array;
+  iv: Uint8Array;
+  ciphertext: Uint8Array;
   createdAt: number;
 }[]> {
   const db = await initDB();

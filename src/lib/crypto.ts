@@ -19,16 +19,14 @@ const AES_KEY_LENGTH = 256;
  * Derives a CryptoKey from a passphrase using PBKDF2-SHA256
  * 
  * @param passphrase - The user's passphrase
+ * @param salt - The salt to use for key derivation
  * @returns A Promise resolving to a CryptoKey
  */
-export async function deriveKey(passphrase: string): Promise<CryptoKey> {
+export async function deriveKey(passphrase: string, salt: Uint8Array): Promise<CryptoKey> {
   // Convert passphrase to an ArrayBuffer
   const encoder = new TextEncoder();
   const passphraseBuffer = encoder.encode(passphrase);
-  
-  // Generate a random salt or use a stored one
-  const salt = window.crypto.getRandomValues(new Uint8Array(SALT_LENGTH));
-  
+
   // Import the passphrase as a key
   const baseKey = await window.crypto.subtle.importKey(
     'raw',
@@ -37,7 +35,7 @@ export async function deriveKey(passphrase: string): Promise<CryptoKey> {
     false,
     ['deriveKey']
   );
-  
+
   // Derive the key using PBKDF2
   const derivedKey = await window.crypto.subtle.deriveKey(
     {
@@ -51,7 +49,7 @@ export async function deriveKey(passphrase: string): Promise<CryptoKey> {
     true,
     ['encrypt', 'decrypt']
   );
-  
+
   return derivedKey;
 }
 
@@ -59,16 +57,22 @@ export async function deriveKey(passphrase: string): Promise<CryptoKey> {
  * Encrypts a private key using AES-GCM
  * 
  * @param privateKeyHex - The private key in hexadecimal format
- * @param cryptoKey - The CryptoKey to use for encryption
- * @returns A Promise resolving to the encrypted key in base64 format
+ * @param passphrase - The passphrase to use for encryption
+ * @returns A Promise resolving to the encrypted key in base64 format (salt+iv+ciphertext)
  */
-export async function encryptPrivateKey(privateKeyHex: string, cryptoKey: CryptoKey): Promise<string> {
+export async function encryptPrivateKey(privateKeyHex: string, passphrase: string): Promise<string> {
   // Convert hex private key to ArrayBuffer
   const privateKeyBytes = hexToBytes(privateKeyHex);
-  
+
+  // Generate a random salt
+  const salt = window.crypto.getRandomValues(new Uint8Array(SALT_LENGTH));
+
+  // Derive a key from the passphrase and salt
+  const cryptoKey = await deriveKey(passphrase, salt);
+
   // Generate a random IV
   const iv = window.crypto.getRandomValues(new Uint8Array(IV_LENGTH));
-  
+
   // Encrypt the private key
   const encryptedBuffer = await window.crypto.subtle.encrypt(
     {
@@ -79,19 +83,15 @@ export async function encryptPrivateKey(privateKeyHex: string, cryptoKey: Crypto
     cryptoKey,
     privateKeyBytes
   );
-  
+
   // Combine the salt, IV, and encrypted data
   const encryptedArray = new Uint8Array(encryptedBuffer);
   const result = new Uint8Array(SALT_LENGTH + IV_LENGTH + encryptedArray.length);
-  
-  // Get the salt from the derived key
-  const exportedKey = await window.crypto.subtle.exportKey('raw', cryptoKey);
-  const salt = new Uint8Array(exportedKey.slice(0, SALT_LENGTH));
-  
+
   result.set(salt, 0);
   result.set(iv, SALT_LENGTH);
   result.set(encryptedArray, SALT_LENGTH + IV_LENGTH);
-  
+
   // Convert to base64
   return bytesToBase64(result);
 }
@@ -99,18 +99,22 @@ export async function encryptPrivateKey(privateKeyHex: string, cryptoKey: Crypto
 /**
  * Decrypts an encrypted private key
  * 
- * @param encryptedBase64 - The encrypted private key in base64 format
- * @param cryptoKey - The CryptoKey to use for decryption
+ * @param encryptedBase64 - The encrypted private key in base64 format (salt+iv+ciphertext)
+ * @param passphrase - The passphrase to use for decryption
  * @returns A Promise resolving to the decrypted private key in hexadecimal format
  */
-export async function decryptPrivateKey(encryptedBase64: string, cryptoKey: CryptoKey): Promise<string> {
+export async function decryptPrivateKey(encryptedBase64: string, passphrase: string): Promise<string> {
   // Convert base64 to ArrayBuffer
   const encryptedBytes = base64ToBytes(encryptedBase64);
-  
-  // Extract the IV and encrypted data
+
+  // Extract the salt, IV, and encrypted data
+  const salt = encryptedBytes.slice(0, SALT_LENGTH);
   const iv = encryptedBytes.slice(SALT_LENGTH, SALT_LENGTH + IV_LENGTH);
   const encryptedData = encryptedBytes.slice(SALT_LENGTH + IV_LENGTH);
-  
+
+  // Derive a key from the passphrase and salt
+  const cryptoKey = await deriveKey(passphrase, salt);
+
   // Decrypt the private key
   const decryptedBuffer = await window.crypto.subtle.decrypt(
     {
@@ -121,11 +125,11 @@ export async function decryptPrivateKey(encryptedBase64: string, cryptoKey: Cryp
     cryptoKey,
     encryptedData
   );
-  
+
   // Convert to hex
   const decryptedBytes = new Uint8Array(decryptedBuffer);
   const privateKeyHex = bytesToHex(decryptedBytes);
-  
+
   return privateKeyHex;
 }
 
@@ -137,7 +141,7 @@ export async function decryptPrivateKey(encryptedBase64: string, cryptoKey: Cryp
 export function secureErase(buffer: Uint8Array | Buffer): void {
   // Overwrite the buffer with random data
   window.crypto.getRandomValues(buffer);
-  
+
   // Overwrite again with zeros
   buffer.fill(0);
 }
@@ -150,17 +154,17 @@ export function secureErase(buffer: Uint8Array | Buffer): void {
 function hexToBytes(hex: string): Uint8Array {
   // Remove '0x' prefix if present
   hex = hex.startsWith('0x') ? hex.slice(2) : hex;
-  
+
   // Ensure even length
   if (hex.length % 2 !== 0) {
     hex = '0' + hex;
   }
-  
+
   const bytes = new Uint8Array(hex.length / 2);
   for (let i = 0; i < hex.length; i += 2) {
     bytes[i / 2] = parseInt(hex.substring(i, i + 2), 16);
   }
-  
+
   return bytes;
 }
 
@@ -180,7 +184,7 @@ function bytesToBase64(bytes: Uint8Array): string {
   const binString = Array.from(bytes)
     .map(byte => String.fromCharCode(byte))
     .join('');
-  
+
   return btoa(binString);
 }
 
@@ -190,10 +194,10 @@ function bytesToBase64(bytes: Uint8Array): string {
 function base64ToBytes(base64: string): Uint8Array {
   const binString = atob(base64);
   const bytes = new Uint8Array(binString.length);
-  
+
   for (let i = 0; i < binString.length; i++) {
     bytes[i] = binString.charCodeAt(i);
   }
-  
+
   return bytes;
 }
