@@ -66,6 +66,33 @@ interface Wallet {
     transactions: Transaction[];
 }
 
+// API response interfaces
+interface BalanceData {
+    name: string;
+    symbol: string;
+    balance: string;
+    decimals: number;
+    isToken: boolean;
+    coin?: string;
+    shortName?: string;
+    tag?: string;
+    type?: string;
+    contractAddress?: string | null;
+    balanceHex?: string;
+}
+
+interface TransactionData {
+    hash: string;
+    blockNumber: string;
+    timestamp: string; // ISO date format
+    fromAddress: string;
+    toAddress: string;
+    valueDecimal: string;
+    feeDecimal: string;
+    status: string; // "confirmed", "pending", "failed"
+    tokenSymbol: string;
+}
+
 export default function DashboardPage() {
     const router = useRouter();
     const {lock, db} = useAccountStore();
@@ -83,6 +110,12 @@ export default function DashboardPage() {
         network: "ethereum" | "bnb";
         name: string;
     } | null>(null);
+
+    // States for API data
+    const [isLoadingBalance, setIsLoadingBalance] = useState(false);
+    const [isLoadingTransactions, setIsLoadingTransactions] = useState(false);
+    const [walletBalances, setWalletBalances] = useState<BalanceData[]>([]);
+    const [walletTransactions, setWalletTransactions] = useState<TransactionData[]>([]);
 
     // Load wallets from IndexedDB on component mount
     useEffect(() => {
@@ -191,8 +224,62 @@ export default function DashboardPage() {
         }
     };
 
-    const handleWalletSelect = (wallet: WalletType) => {
+    const handleWalletSelect = async (wallet: WalletType) => {
         setSelectedWallet(wallet);
+
+        // Fetch wallet balance
+        setIsLoadingBalance(true);
+        try {
+            const balance = await cryptoWebApiClient.getWalletBalance({
+                network: wallet.network,
+                address: wallet.address,
+                mode: 'mainnet'
+            });
+
+            if (balance.success && balance.data) {
+                setWalletBalances(balance.data);
+
+                // Update wallet with main coin balance
+                const mainCoin = balance.data.find(coin => !coin.isToken);
+                if (mainCoin) {
+                    const mainCoinBalance = parseFloat(mainCoin.balance);
+                    // TODO: Update wallet balance in state and DB
+                }
+            }
+        } catch (error) {
+            console.error("Error fetching wallet balance:", error);
+            toast({
+                title: "Error",
+                description: "Failed to fetch wallet balance",
+                variant: "destructive",
+            });
+        } finally {
+            setIsLoadingBalance(false);
+        }
+
+        // Fetch wallet transactions
+        setIsLoadingTransactions(true);
+        try {
+            const transactions = await cryptoWebApiClient.listTransactions({
+                network: wallet.network,
+                address: wallet.address,
+                limit: 10,
+                sortOrder: 'desc',
+            });
+
+            if (transactions.success && transactions.data) {
+                setWalletTransactions(transactions.data);
+            }
+        } catch (error) {
+            console.error("Error fetching wallet transactions:", error);
+            toast({
+                title: "Error",
+                description: "Failed to fetch wallet transactions",
+                variant: "destructive",
+            });
+        } finally {
+            setIsLoadingTransactions(false);
+        }
     };
 
     const handleBackToList = () => {
@@ -323,170 +410,439 @@ export default function DashboardPage() {
                 </header>
 
                 <main className="container mx-auto p-4 md:p-6">
-                    <div className="mb-8">
-                        <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-2">
-                            <div>
-                                <h1 className="text-2xl font-bold mb-1 text-white">Portfolio</h1>
-                                <div className="flex items-center space-x-2">
-                                    <div className="text-3xl font-bold text-[#a99fec]">
-                                        {balanceVisible
-                                            ? formatCurrency(totalBalance)
-                                            : "••••••"
-                                        }
+                    {!selectedWallet ? (
+                        <>
+                            <div className="mb-8">
+                                <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-2">
+                                    <div>
+                                        <h1 className="text-2xl font-bold mb-1 text-white">Portfolio</h1>
+                                        <div className="flex items-center space-x-2">
+                                            <div className="text-3xl font-bold text-[#a99fec]">
+                                                {balanceVisible
+                                                    ? formatCurrency(totalBalance)
+                                                    : "••••••"
+                                                }
+                                            </div>
+                                            <Badge
+                                                className={`${totalChangePercent >= 0 ? 'bg-green-900/20 text-green-500' : 'bg-red-900/20 text-red-500'} border-0`}>
+                                                {totalChangePercent >= 0
+                                                    ? <TrendingUp className="w-3 h-3 mr-1"/>
+                                                    : <TrendingDown className="w-3 h-3 mr-1"/>
+                                                }
+                                                {totalChangePercent.toFixed(2)}%
+                                            </Badge>
+                                        </div>
                                     </div>
-                                    <Badge
-                                        className={`${totalChangePercent >= 0 ? 'bg-green-900/20 text-green-500' : 'bg-red-900/20 text-red-500'} border-0`}>
-                                        {totalChangePercent >= 0
-                                            ? <TrendingUp className="w-3 h-3 mr-1"/>
-                                            : <TrendingDown className="w-3 h-3 mr-1"/>
-                                        }
-                                        {totalChangePercent.toFixed(2)}%
-                                    </Badge>
+                                    <div className="flex space-x-2 mt-4 sm:mt-0">
+                                        <Button
+                                            onClick={() => setShowCreateModal(true)}
+                                            className="bg-[#a99fec] text-[#222222] hover:bg-[#9888db]"
+                                        >
+                                            <Plus className="w-4 h-4 mr-2"/>
+                                            Add Wallet
+                                        </Button>
+                                    </div>
                                 </div>
                             </div>
-                            <div className="flex space-x-2 mt-4 sm:mt-0">
-                                <Button
-                                    onClick={() => setShowCreateModal(true)}
-                                    className="bg-[#a99fec] text-[#222222] hover:bg-[#9888db]"
-                                >
-                                    <Plus className="w-4 h-4 mr-2"/>
-                                    Add Wallet
-                                </Button>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="mb-8">
-                        <div className="flex items-center justify-between mb-4">
-                            <h2 className="text-xl font-bold text-white">Your Wallets</h2>
-                        </div>
+                            <div className="mb-8">
+                                <div className="flex items-center justify-between mb-4">
+                                    <h2 className="text-xl font-bold text-white">Your Wallets</h2>
+                                </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {wallets.length > 0 ? (
-                                wallets.map((wallet) => (
-                                    <Card
-                                        key={wallet.id}
-                                        className="bg-[#2a2a2a] border-[#2a2a2a] hover:border-[#a99fec] border transition-colors overflow-hidden cursor-pointer"
-                                        onClick={() => setSelectedWallet(wallet)}
-                                    >
-                                        <CardContent className="p-4">
-                                            <div className="flex justify-between items-start mb-3">
-                                                <div className="flex items-center">
-                                                    {wallet.network === "ethereum" ? (
-                                                        <div
-                                                            className="w-8 h-8 rounded-full bg-blue-600/20 flex items-center justify-center mr-3">
-                                                            <svg className="w-5 h-5 text-blue-500"
-                                                                 viewBox="0 0 784.37 1277.39" fill="none"
-                                                                 xmlns="http://www.w3.org/2000/svg">
-                                                                <path
-                                                                    d="M392.07 0L383.5 29.11V873.74L392.07 882.29L784.13 650.54L392.07 0Z"
-                                                                    fill="#343434"/>
-                                                                <path d="M392.07 0L0 650.54L392.07 882.29V472.33V0Z"
-                                                                      fill="#8C8C8C"/>
-                                                                <path
-                                                                    d="M392.07 956.52L387.24 962.41V1263.28L392.07 1277.38L784.37 724.89L392.07 956.52Z"
-                                                                    fill="#3C3C3B"/>
-                                                                <path
-                                                                    d="M392.07 1277.38V956.52L0 724.89L392.07 1277.38Z"
-                                                                    fill="#8C8C8C"/>
-                                                                <path
-                                                                    d="M392.07 882.29L784.13 650.54L392.07 472.33V882.29Z"
-                                                                    fill="#141414"/>
-                                                                <path d="M0 650.54L392.07 882.29V472.33L0 650.54Z"
-                                                                      fill="#393939"/>
-                                                            </svg>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    {wallets.length > 0 ? (
+                                        wallets.map((wallet) => (
+                                            <Card
+                                                key={wallet.id}
+                                                className="bg-[#2a2a2a] border-[#2a2a2a] hover:border-[#a99fec] border transition-colors overflow-hidden cursor-pointer"
+                                                onClick={() => handleWalletSelect(wallet)}
+                                            >
+                                                <CardContent className="p-4">
+                                                    <div className="flex justify-between items-start mb-3">
+                                                        <div className="flex items-center">
+                                                            {wallet.network === "ethereum" ? (
+                                                                <div
+                                                                    className="w-8 h-8 rounded-full bg-blue-600/20 flex items-center justify-center mr-3">
+                                                                    <svg className="w-5 h-5 text-blue-500"
+                                                                         viewBox="0 0 784.37 1277.39" fill="none"
+                                                                         xmlns="http://www.w3.org/2000/svg">
+                                                                        <path
+                                                                            d="M392.07 0L383.5 29.11V873.74L392.07 882.29L784.13 650.54L392.07 0Z"
+                                                                            fill="#343434"/>
+                                                                        <path d="M392.07 0L0 650.54L392.07 882.29V472.33V0Z"
+                                                                              fill="#8C8C8C"/>
+                                                                        <path
+                                                                            d="M392.07 956.52L387.24 962.41V1263.28L392.07 1277.38L784.37 724.89L392.07 956.52Z"
+                                                                            fill="#3C3C3B"/>
+                                                                        <path
+                                                                            d="M392.07 1277.38V956.52L0 724.89L392.07 1277.38Z"
+                                                                            fill="#8C8C8C"/>
+                                                                        <path
+                                                                            d="M392.07 882.29L784.13 650.54L392.07 472.33V882.29Z"
+                                                                            fill="#141414"/>
+                                                                        <path d="M0 650.54L392.07 882.29V472.33L0 650.54Z"
+                                                                              fill="#393939"/>
+                                                                    </svg>
+                                                                </div>
+                                                            ) : (
+                                                                <div
+                                                                    className="w-8 h-8 rounded-full bg-yellow-600/20 flex items-center justify-center mr-3">
+                                                                    <svg className="w-5 h-5 text-yellow-500"
+                                                                         viewBox="0 0 2500 2500" fill="none"
+                                                                         xmlns="http://www.w3.org/2000/svg">
+                                                                        <path
+                                                                            d="M764.48,1050.52,1250,565l485.75,485.73,282.5-282.5L1250,0,482,768l282.49,282.5"
+                                                                            fill="#F0B90B"/>
+                                                                        <path
+                                                                            d="M302.61,1250,585.11,967.52,302.61,685,20.11,967.52ZM764.48,1449.51l485.52-485.75,282.5,282.5-485.52,485.75L764.48,2014.5,481.76,1732"
+                                                                            fill="#F0B90B"/>
+                                                                        <path
+                                                                            d="M397.13,1267.42,1250,420.55l852.87,846.87L1733.16,1637,1250,1154l-483.45,483.44-369.42-369.42"
+                                                                            fill="#F0B90B"/>
+                                                                        <path
+                                                                            d="M1250,1733.76l483.16-483.44,282.49,282.5L1250,2500,482.48,1732.5,764.48,1450"
+                                                                            fill="#F0B90B"/>
+                                                                    </svg>
+                                                                </div>
+                                                            )}
+                                                            <div>
+                                                                <div className="font-semibold text-white">{wallet.name}</div>
+                                                                <div className="text-xs text-gray-400 flex items-center">
+                                                                    {formatAddress(wallet.address)}
+                                                                    <button
+                                                                        className="ml-1 text-gray-400 hover:text-[#a99fec]"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            copyToClipboard(wallet.address);
+                                                                            toast({
+                                                                                title: "Address copied",
+                                                                                description: "Wallet address copied to clipboard",
+                                                                            });
+                                                                        }}
+                                                                    >
+                                                                        <Copy size={12}/>
+                                                                    </button>
+                                                                </div>
+                                                            </div>
                                                         </div>
-                                                    ) : (
-                                                        <div
-                                                            className="w-8 h-8 rounded-full bg-yellow-600/20 flex items-center justify-center mr-3">
-                                                            <svg className="w-5 h-5 text-yellow-500"
-                                                                 viewBox="0 0 2500 2500" fill="none"
-                                                                 xmlns="http://www.w3.org/2000/svg">
-                                                                <path
-                                                                    d="M764.48,1050.52,1250,565l485.75,485.73,282.5-282.5L1250,0,482,768l282.49,282.5"
-                                                                    fill="#F0B90B"/>
-                                                                <path
-                                                                    d="M302.61,1250,585.11,967.52,302.61,685,20.11,967.52ZM764.48,1449.51l485.52-485.75,282.5,282.5-485.52,485.75L764.48,2014.5,481.76,1732"
-                                                                    fill="#F0B90B"/>
-                                                                <path
-                                                                    d="M397.13,1267.42,1250,420.55l852.87,846.87L1733.16,1637,1250,1154l-483.45,483.44-369.42-369.42"
-                                                                    fill="#F0B90B"/>
-                                                                <path
-                                                                    d="M1250,1733.76l483.16-483.44,282.49,282.5L1250,2500,482.48,1732.5,764.48,1450"
-                                                                    fill="#F0B90B"/>
-                                                            </svg>
+                                                        <Badge className="bg-[#2a2a2a] text-[#a99fec] border border-[#3a3a3a]">
+                                                            {wallet.network === "ethereum" ? "Ethereum" : "BNB Chain"}
+                                                        </Badge>
+                                                    </div>
+
+                                                    <div className="space-y-1">
+                                                        <div className="font-bold text-xl text-white">
+                                                            {balanceVisible
+                                                                ? formatCurrency(wallet.balanceUSD || 0)
+                                                                : "••••••"
+                                                            }
                                                         </div>
-                                                    )}
-                                                    <div>
-                                                        <div className="font-semibold text-white">{wallet.name}</div>
-                                                        <div className="text-xs text-gray-400 flex items-center">
-                                                            {formatAddress(wallet.address)}
-                                                            <button
-                                                                className="ml-1 text-gray-400 hover:text-[#a99fec]"
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    copyToClipboard(wallet.address);
-                                                                    toast.show({
-                                                                        title: "Address copied",
-                                                                        description: "Wallet address copied to clipboard",
-                                                                    });
-                                                                }}
-                                                            >
-                                                                <Copy size={12}/>
-                                                            </button>
+                                                        <div className="flex items-center text-sm">
+                                  <span className="text-gray-400 mr-2">
+                                    {balanceVisible
+                                        ? `${wallet.balance || 0} ${wallet.network === "ethereum" ? "ETH" : "BNB"}`
+                                        : "••••••"
+                                    }
+                                  </span>
+                                                            <Badge
+                                                                className={`${wallet.changePercent24h >= 0 ? 'bg-green-900/20 text-green-500' : 'bg-red-900/20 text-red-500'} border-0 text-xs`}>
+                                                                {wallet.changePercent24h >= 0
+                                                                    ? <TrendingUp className="w-3 h-3 mr-1"/>
+                                                                    : <TrendingDown className="w-3 h-3 mr-1"/>
+                                                                }
+                                                                {wallet.changePercent24h.toFixed(2)}%
+                                                            </Badge>
                                                         </div>
                                                     </div>
-                                                </div>
-                                                <Badge className="bg-[#2a2a2a] text-[#a99fec] border border-[#3a3a3a]">
-                                                    {wallet.network === "ethereum" ? "Ethereum" : "BNB Chain"}
-                                                </Badge>
-                                            </div>
+                                                </CardContent>
+                                            </Card>
+                                        ))
+                                    ) : (
+                                        <div
+                                            className="col-span-full py-10 flex flex-col items-center justify-center bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg text-center">
+                                            <WalletIcon className="h-12 w-12 text-[#a99fec] opacity-50 mb-4"/>
+                                            <h3 className="text-lg font-medium text-white mb-2">No wallets yet</h3>
+                                            <p className="text-gray-400 max-w-md mb-6">
+                                                Add your first wallet to start managing your crypto assets
+                                            </p>
+                                            <Button
+                                                onClick={() => setShowCreateModal(true)}
+                                                className="bg-[#a99fec] text-[#222222] hover:bg-[#9888db]"
+                                            >
+                                                <Plus className="w-4 h-4 mr-2"/>
+                                                Create New Wallet
+                                            </Button>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </>
+                    ) : (
+                        // Wallet Details View
+                        <div>
+                            <div className="mb-6">
+                                <Button 
+                                    variant="ghost" 
+                                    onClick={handleBackToList}
+                                    className="text-gray-400 hover:text-[#a99fec] -ml-2 mb-4"
+                                >
+                                    ← Back to Wallets
+                                </Button>
 
-                                            <div className="space-y-1">
-                                                <div className="font-bold text-xl text-white">
-                                                    {balanceVisible
-                                                        ? formatCurrency(wallet.balanceUSD || 0)
-                                                        : "••••••"
-                                                    }
-                                                </div>
-                                                <div className="flex items-center text-sm">
-                          <span className="text-gray-400 mr-2">
-                            {balanceVisible
-                                ? `${wallet.balance || 0} ${wallet.network === "ethereum" ? "ETH" : "BNB"}`
-                                : "••••••"
-                            }
-                          </span>
-                                                    <Badge
-                                                        className={`${wallet.changePercent24h >= 0 ? 'bg-green-900/20 text-green-500' : 'bg-red-900/20 text-red-500'} border-0 text-xs`}>
-                                                        {wallet.changePercent24h >= 0
-                                                            ? <TrendingUp className="w-3 h-3 mr-1"/>
-                                                            : <TrendingDown className="w-3 h-3 mr-1"/>
-                                                        }
-                                                        {wallet.changePercent24h.toFixed(2)}%
-                                                    </Badge>
-                                                </div>
+                                <div className="flex flex-col md:flex-row md:items-center justify-between mb-6">
+                                    <div className="flex items-center mb-4 md:mb-0">
+                                        {selectedWallet.network === "ethereum" ? (
+                                            <div className="w-12 h-12 rounded-full bg-blue-600/20 flex items-center justify-center mr-4">
+                                                <svg className="w-7 h-7 text-blue-500"
+                                                     viewBox="0 0 784.37 1277.39" fill="none"
+                                                     xmlns="http://www.w3.org/2000/svg">
+                                                    <path
+                                                        d="M392.07 0L383.5 29.11V873.74L392.07 882.29L784.13 650.54L392.07 0Z"
+                                                        fill="#343434"/>
+                                                    <path d="M392.07 0L0 650.54L392.07 882.29V472.33V0Z"
+                                                          fill="#8C8C8C"/>
+                                                    <path
+                                                        d="M392.07 956.52L387.24 962.41V1263.28L392.07 1277.38L784.37 724.89L392.07 956.52Z"
+                                                        fill="#3C3C3B"/>
+                                                    <path
+                                                        d="M392.07 1277.38V956.52L0 724.89L392.07 1277.38Z"
+                                                        fill="#8C8C8C"/>
+                                                    <path
+                                                        d="M392.07 882.29L784.13 650.54L392.07 472.33V882.29Z"
+                                                        fill="#141414"/>
+                                                    <path d="M0 650.54L392.07 882.29V472.33L0 650.54Z"
+                                                          fill="#393939"/>
+                                                </svg>
                                             </div>
+                                        ) : (
+                                            <div className="w-12 h-12 rounded-full bg-yellow-600/20 flex items-center justify-center mr-4">
+                                                <svg className="w-7 h-7 text-yellow-500"
+                                                     viewBox="0 0 2500 2500" fill="none"
+                                                     xmlns="http://www.w3.org/2000/svg">
+                                                    <path
+                                                        d="M764.48,1050.52,1250,565l485.75,485.73,282.5-282.5L1250,0,482,768l282.49,282.5"
+                                                        fill="#F0B90B"/>
+                                                    <path
+                                                        d="M302.61,1250,585.11,967.52,302.61,685,20.11,967.52ZM764.48,1449.51l485.52-485.75,282.5,282.5-485.52,485.75L764.48,2014.5,481.76,1732"
+                                                        fill="#F0B90B"/>
+                                                    <path
+                                                        d="M397.13,1267.42,1250,420.55l852.87,846.87L1733.16,1637,1250,1154l-483.45,483.44-369.42-369.42"
+                                                        fill="#F0B90B"/>
+                                                    <path
+                                                        d="M1250,1733.76l483.16-483.44,282.49,282.5L1250,2500,482.48,1732.5,764.48,1450"
+                                                        fill="#F0B90B"/>
+                                                </svg>
+                                            </div>
+                                        )}
+                                        <div>
+                                            <h1 className="text-2xl font-bold text-white">{selectedWallet.name}</h1>
+                                            <div className="flex items-center text-gray-400">
+                                                <Badge className="mr-2 bg-[#2a2a2a] text-[#a99fec] border border-[#3a3a3a]">
+                                                    {selectedWallet.network === "ethereum" ? "Ethereum" : "BNB Chain"}
+                                                </Badge>
+                                                <span className="text-sm flex items-center">
+                                                    {selectedWallet.address}
+                                                    <button
+                                                        className="ml-1 text-gray-400 hover:text-[#a99fec]"
+                                                        onClick={() => {
+                                                            copyToClipboard(selectedWallet.address);
+                                                            toast({
+                                                                title: "Address copied",
+                                                                description: "Wallet address copied to clipboard",
+                                                            });
+                                                        }}
+                                                    >
+                                                        <Copy size={14}/>
+                                                    </button>
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                                    <Card className="bg-[#2a2a2a] border-[#3a3a3a]">
+                                        <CardContent className="p-6">
+                                            <h3 className="text-sm font-medium text-gray-400 mb-2">Total Balance</h3>
+                                            {isLoadingBalance ? (
+                                                <div className="text-gray-400">Loading balance...</div>
+                                            ) : (
+                                                <>
+                                                    <div className="text-2xl font-bold text-white mb-1">
+                                                        {balanceVisible
+                                                            ? formatCurrency(selectedWallet.balanceUSD || 0)
+                                                            : "••••••"
+                                                        }
+                                                    </div>
+                                                    <div className="flex items-center text-sm">
+                                                        <span className="text-gray-400 mr-2">
+                                                            {balanceVisible && walletBalances.length > 0
+                                                                ? `${parseFloat(walletBalances.find(b => !b.isToken)?.balance || "0")} ${selectedWallet.network === "ethereum" ? "ETH" : "BNB"}`
+                                                                : "••••••"
+                                                            }
+                                                        </span>
+                                                        <Badge
+                                                            className={`${selectedWallet.changePercent24h >= 0 ? 'bg-green-900/20 text-green-500' : 'bg-red-900/20 text-red-500'} border-0 text-xs`}>
+                                                            {selectedWallet.changePercent24h >= 0
+                                                                ? <TrendingUp className="w-3 h-3 mr-1"/>
+                                                                : <TrendingDown className="w-3 h-3 mr-1"/>
+                                                            }
+                                                            {selectedWallet.changePercent24h.toFixed(2)}%
+                                                        </Badge>
+                                                    </div>
+                                                </>
+                                            )}
                                         </CardContent>
                                     </Card>
-                                ))
-                            ) : (
-                                <div
-                                    className="col-span-full py-10 flex flex-col items-center justify-center bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg text-center">
-                                    <WalletIcon className="h-12 w-12 text-[#a99fec] opacity-50 mb-4"/>
-                                    <h3 className="text-lg font-medium text-white mb-2">No wallets yet</h3>
-                                    <p className="text-gray-400 max-w-md mb-6">
-                                        Add your first wallet to start managing your crypto assets
-                                    </p>
-                                    <Button
-                                        onClick={() => setShowCreateModal(true)}
-                                        className="bg-[#a99fec] text-[#222222] hover:bg-[#9888db]"
-                                    >
-                                        <Plus className="w-4 h-4 mr-2"/>
-                                        Create New Wallet
-                                    </Button>
+
+                                    <Card className="bg-[#2a2a2a] border-[#3a3a3a]">
+                                        <CardContent className="p-6">
+                                            <h3 className="text-sm font-medium text-gray-400 mb-2">Tokens</h3>
+                                            {isLoadingBalance ? (
+                                                <div className="text-gray-400">Loading tokens...</div>
+                                            ) : (
+                                                <>
+                                                    <div className="text-2xl font-bold text-white mb-1">
+                                                        {walletBalances.filter(token => token.isToken).length}
+                                                    </div>
+                                                    <div className="text-sm text-gray-400">
+                                                        Different assets in this wallet
+                                                    </div>
+                                                </>
+                                            )}
+                                        </CardContent>
+                                    </Card>
+
+                                    <Card className="bg-[#2a2a2a] border-[#3a3a3a]">
+                                        <CardContent className="p-6">
+                                            <h3 className="text-sm font-medium text-gray-400 mb-2">Transactions</h3>
+                                            {isLoadingTransactions ? (
+                                                <div className="text-gray-400">Loading transactions...</div>
+                                            ) : (
+                                                <>
+                                                    <div className="text-2xl font-bold text-white mb-1">
+                                                        {walletTransactions.length}
+                                                    </div>
+                                                    <div className="text-sm text-gray-400">
+                                                        Total transactions
+                                                    </div>
+                                                </>
+                                            )}
+                                        </CardContent>
+                                    </Card>
                                 </div>
-                            )}
+
+                                {/* Tokens Section */}
+                                <div className="mb-8">
+                                    <h2 className="text-xl font-bold text-white mb-4">Tokens</h2>
+                                    <Card className="bg-[#2a2a2a] border-[#3a3a3a]">
+                                        <div className="p-4">
+                                            <div className="grid grid-cols-12 text-sm font-medium text-gray-400 border-b border-[#3a3a3a] pb-2">
+                                                <div className="col-span-4">Asset</div>
+                                                <div className="col-span-3 text-right">Balance</div>
+                                                <div className="col-span-3 text-right">Value</div>
+                                                <div className="col-span-2 text-right">Type</div>
+                                            </div>
+
+                                            {isLoadingBalance ? (
+                                                <div className="py-8 text-center text-gray-400">
+                                                    Loading token balances...
+                                                </div>
+                                            ) : walletBalances.length > 0 ? (
+                                                <div className="divide-y divide-[#3a3a3a]">
+                                                    {walletBalances.map((token, index) => (
+                                                        <div key={index} className="grid grid-cols-12 py-4 text-sm">
+                                                            <div className="col-span-4 flex items-center">
+                                                                <div className="font-medium text-white">{token.coin || token.name}</div>
+                                                                <div className="text-gray-400 ml-2">{token.symbol}</div>
+                                                            </div>
+                                                            <div className="col-span-3 text-right text-white">
+                                                                {balanceVisible ? parseFloat(token.balance).toFixed(6) : "••••••"} {token.symbol}
+                                                            </div>
+                                                            <div className="col-span-3 text-right text-white">
+                                                                {balanceVisible ? formatCurrency(0) : "••••••"}
+                                                            </div>
+                                                            <div className="col-span-2 text-right">
+                                                                <Badge
+                                                                    className={`${token.isToken ? 'bg-blue-900/20 text-blue-500' : 'bg-green-900/20 text-green-500'} border-0 text-xs`}>
+                                                                    {token.isToken ? 'Token' : 'Coin'}
+                                                                </Badge>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <div className="py-8 text-center text-gray-400">
+                                                    No tokens found in this wallet
+                                                </div>
+                                            )}
+                                        </div>
+                                    </Card>
+                                </div>
+
+                                {/* Transactions Section */}
+                                <div>
+                                    <h2 className="text-xl font-bold text-white mb-4">Transaction History</h2>
+                                    <Card className="bg-[#2a2a2a] border-[#3a3a3a]">
+                                        <div className="p-4">
+                                            <div className="grid grid-cols-12 text-sm font-medium text-gray-400 border-b border-[#3a3a3a] pb-2">
+                                                <div className="col-span-2">Hash</div>
+                                                <div className="col-span-2">Amount</div>
+                                                <div className="col-span-3">From</div>
+                                                <div className="col-span-3">To</div>
+                                                <div className="col-span-2 text-right">Status</div>
+                                            </div>
+
+                                            {isLoadingTransactions ? (
+                                                <div className="py-8 text-center text-gray-400">
+                                                    Loading transactions...
+                                                </div>
+                                            ) : walletTransactions.length > 0 ? (
+                                                <div className="divide-y divide-[#3a3a3a]">
+                                                    {walletTransactions.map((tx, index) => {
+                                                        const isReceived = tx.toAddress.toLowerCase() === selectedWallet?.address.toLowerCase();
+                                                        const date = new Date(tx.timestamp);
+
+                                                        return (
+                                                            <div key={index} className="grid grid-cols-12 py-4 text-sm">
+                                                                <div className="col-span-2 text-gray-400">
+                                                                    {formatAddress(tx.hash)}
+                                                                </div>
+                                                                <div className="col-span-2 text-white">
+                                                                    {balanceVisible ? parseFloat(tx.valueDecimal).toFixed(6) : "••••••"} {tx.tokenSymbol || (selectedWallet?.network === "ethereum" ? "ETH" : "BNB")}
+                                                                </div>
+                                                                <div className="col-span-3 text-gray-400">
+                                                                    {formatAddress(tx.fromAddress)}
+                                                                </div>
+                                                                <div className="col-span-3 text-gray-400">
+                                                                    {formatAddress(tx.toAddress)}
+                                                                </div>
+                                                                <div className="col-span-2 text-right">
+                                                                    <Badge className={`
+                                                                        ${!tx.status ? 'bg-gray-900/20 text-gray-500' :
+                                                                          tx.status === 'confirmed' ? 'bg-green-900/20 text-green-500' : 
+                                                                          tx.status === 'pending' ? 'bg-yellow-900/20 text-yellow-500' : 
+                                                                          'bg-red-900/20 text-red-500'} 
+                                                                        border-0
+                                                                    `}>
+                                                                        {tx.status ? tx.status.charAt(0).toUpperCase() + tx.status.slice(1) : 'Unknown'}
+                                                                    </Badge>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            ) : (
+                                                <div className="py-8 text-center text-gray-400">
+                                                    No transactions found for this wallet
+                                                </div>
+                                            )}
+                                        </div>
+                                    </Card>
+                                </div>
+                            </div>
                         </div>
-                    </div>
+                    )}
                 </main>
 
 
@@ -512,7 +868,7 @@ export default function DashboardPage() {
                                             size="icon"
                                             onClick={() => {
                                                 copyToClipboard(newlyCreatedWallet.address);
-                                                toast.show({
+                                                toast({
                                                     title: "Address copied",
                                                     description: "Wallet address copied to clipboard",
                                                 });
@@ -535,7 +891,7 @@ export default function DashboardPage() {
                                             size="icon"
                                             onClick={() => {
                                                 copyToClipboard(newlyCreatedWallet.privateKey);
-                                                toast.show({
+                                                toast({
                                                     title: "Private key copied",
                                                     description: "Private key copied to clipboard",
                                                 });
@@ -561,7 +917,7 @@ export default function DashboardPage() {
                                                 size="icon"
                                                 onClick={() => {
                                                     copyToClipboard(newlyCreatedWallet.mnemonic || "");
-                                                    toast.show({
+                                                    toast({
                                                         title: "Mnemonic copied",
                                                         description: "Mnemonic phrase copied to clipboard",
                                                     });
