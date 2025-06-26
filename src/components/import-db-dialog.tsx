@@ -50,30 +50,21 @@ export function ImportDBDialog({ className, showLabel = false }: ImportDBDialogP
         throw new Error("Invalid passphrase");
       }
 
-      // Parse the import data to get the database name
-      let dbName;
-      try {
-        const jsonString = atob(importData);
-        const importObj = JSON.parse(jsonString);
-        dbName = importObj.dbName;
-      } catch (error) {
-        throw new Error("Invalid import data format");
-      }
-
-      // Check if database already exists
+      // We can't parse the import data directly anymore because it's encrypted
+      // Instead, we'll check if any database with the bp_ prefix exists
       const dbList = await indexedDB.databases();
-      const dbExists = dbList.some(db => db.name === dbName);
+      const existingDbs = dbList.filter(db => db.name?.startsWith("bp_"));
 
-      // If database exists and we're not in confirmation mode, ask for confirmation
-      if (dbExists && !showConfirmOverwrite) {
-        setDbToOverwrite(dbName);
+      // If any database with the bp_ prefix exists and we're not in confirmation mode, ask for confirmation
+      if (existingDbs.length > 0 && !showConfirmOverwrite) {
+        setDbToOverwrite("existing wallet");
         setShowConfirmOverwrite(true);
         setIsLoading(false);
         return;
       }
 
-      // Import the database from base64
-      await importDatabaseFromBase64(importData);
+      // Import the database from encrypted base64
+      await importDatabaseFromBase64(importData, passphrase);
 
       // If user is logged in, sign out
       if (unlocked) {
@@ -179,9 +170,9 @@ export function ImportDBDialog({ className, showLabel = false }: ImportDBDialogP
         ) : (
           <div className="space-y-4">
             <div className="bg-red-900/20 p-4 rounded-lg border border-red-800">
-              <h3 className="text-red-400 font-semibold mb-2">Database Already Exists</h3>
+              <h3 className="text-red-400 font-semibold mb-2">Wallet Already Exists</h3>
               <p className="text-red-300 mb-2">
-                A database with the name "{dbToOverwrite}" already exists. Importing will overwrite this database.
+                You already have a wallet on this device. Importing will overwrite your existing wallet data.
               </p>
               <p className="text-red-300">
                 Are you sure you want to continue?

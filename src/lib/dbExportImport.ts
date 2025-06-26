@@ -2,17 +2,20 @@
  * Database export and import utilities
  * 
  * This module provides functions for:
- * - Exporting an IndexedDB database to base64
- * - Importing an IndexedDB database from base64
+ * - Exporting an IndexedDB database to encrypted base64
+ * - Importing an IndexedDB database from encrypted base64
  */
 
+import { encryptData, decryptData } from './dbCrypto';
+
 /**
- * Export an IndexedDB database to base64
+ * Export an IndexedDB database to encrypted base64
  * 
  * @param dbName - The name of the database to export
- * @returns A Promise resolving to a base64 string representation of the database
+ * @param passphrase - The passphrase to use for encryption
+ * @returns A Promise resolving to an encrypted base64 string representation of the database
  */
-export async function exportDatabaseToBase64(dbName: string): Promise<string> {
+export async function exportDatabaseToBase64(dbName: string, passphrase: string): Promise<string> {
   try {
     // Open the database
     const request = indexedDB.open(dbName);
@@ -32,7 +35,9 @@ export async function exportDatabaseToBase64(dbName: string): Promise<string> {
         if (storeNames.length === 0) {
           db.close();
           const emptyExport = JSON.stringify({ dbName, stores: {}, schemas: {} });
-          return resolve(btoa(emptyExport));
+          // Encrypt the empty database data
+          const encryptedData = await encryptData(emptyExport, passphrase);
+          return resolve(encryptedData);
         }
 
         // Create a transaction to read all data
@@ -69,7 +74,7 @@ export async function exportDatabaseToBase64(dbName: string): Promise<string> {
           // Get all records from the store
           const getAllRequest = objectStore.getAll();
 
-          getAllRequest.onsuccess = () => {
+          getAllRequest.onsuccess = async () => {
             exportData[storeName] = getAllRequest.result;
             storesCompleted++;
 
@@ -83,7 +88,9 @@ export async function exportDatabaseToBase64(dbName: string): Promise<string> {
                 version: db.version
               };
               const exportString = JSON.stringify(exportObj);
-              resolve(btoa(exportString));
+              // Encrypt the data before returning it
+              const encryptedData = await encryptData(exportString, passphrase);
+              resolve(encryptedData);
             }
           };
 
@@ -106,15 +113,16 @@ export async function exportDatabaseToBase64(dbName: string): Promise<string> {
 }
 
 /**
- * Import an IndexedDB database from base64
+ * Import an IndexedDB database from encrypted base64
  * 
- * @param base64Data - The base64 string representation of the database
+ * @param encryptedData - The encrypted base64 string representation of the database
+ * @param passphrase - The passphrase to use for decryption
  * @returns A Promise resolving to the name of the imported database
  */
-export async function importDatabaseFromBase64(base64Data: string): Promise<string> {
+export async function importDatabaseFromBase64(encryptedData: string, passphrase: string): Promise<string> {
   try {
-    // Decode the base64 data
-    const jsonString = atob(base64Data);
+    // Decrypt the data
+    const jsonString = await decryptData(encryptedData, passphrase);
     const importData = JSON.parse(jsonString);
     const { dbName, stores, schemas, version } = importData;
 

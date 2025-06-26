@@ -117,8 +117,8 @@ export default function SettingsPage() {
           throw new Error("Database name not found. Please log in again.");
         }
 
-        // Export the database to base64
-        const exportedData = await exportDatabaseToBase64(dbName);
+        // Export the database to encrypted base64
+        const exportedData = await exportDatabaseToBase64(dbName, passphrase);
         setExportData(exportedData);
         setShowPassphraseModal(false);
         setShowExportModal(true);
@@ -195,8 +195,8 @@ export default function SettingsPage() {
         throw new Error("Invalid passphrase");
       }
 
-      // Import the database from base64
-      const dbName = await importDatabaseFromBase64(importData);
+      // Import the database from encrypted base64
+      const dbName = await importDatabaseFromBase64(importData, passphrase);
 
       // Sign out
       await signOut({ redirect: false });
