@@ -116,6 +116,7 @@ export default function DashboardPage() {
     const [isLoadingTransactions, setIsLoadingTransactions] = useState(false);
     const [walletBalances, setWalletBalances] = useState<BalanceData[]>([]);
     const [walletTransactions, setWalletTransactions] = useState<TransactionData[]>([]);
+    const [transactionTab, setTransactionTab] = useState<'all' | 'incoming' | 'outgoing'>('all');
 
     // Load wallets from IndexedDB on component mount
     useEffect(() => {
@@ -224,8 +225,48 @@ export default function DashboardPage() {
         }
     };
 
+    // Function to fetch transactions based on the selected tab
+    const fetchTransactions = async (wallet: WalletType, tab: 'all' | 'incoming' | 'outgoing') => {
+        if (!wallet) return;
+
+        setIsLoadingTransactions(true);
+        try {
+            const params: any = {
+                network: wallet.network,
+                limit: 50,
+                sortBy: 'timestamp',
+                sortOrder: 'desc',
+            };
+
+            // Set the appropriate address parameter based on the selected tab
+            if (tab === 'all') {
+                params.address = wallet.address;
+            } else if (tab === 'incoming') {
+                params.toAddress = wallet.address;
+            } else if (tab === 'outgoing') {
+                params.fromAddress = wallet.address;
+            }
+
+            const transactions = await cryptoWebApiClient.listTransactions(params);
+
+            if (transactions.success && transactions.data) {
+                setWalletTransactions(transactions.data);
+            }
+        } catch (error) {
+            console.error("Error fetching wallet transactions:", error);
+            toast({
+                title: "Error",
+                description: "Failed to fetch wallet transactions",
+                variant: "destructive",
+            });
+        } finally {
+            setIsLoadingTransactions(false);
+        }
+    };
+
     const handleWalletSelect = async (wallet: WalletType) => {
         setSelectedWallet(wallet);
+        setTransactionTab('all'); // Reset to 'all' tab when selecting a new wallet
 
         // Fetch wallet balance
         setIsLoadingBalance(true);
@@ -257,29 +298,16 @@ export default function DashboardPage() {
             setIsLoadingBalance(false);
         }
 
-        // Fetch wallet transactions
-        setIsLoadingTransactions(true);
-        try {
-            const transactions = await cryptoWebApiClient.listTransactions({
-                network: wallet.network,
-                address: wallet.address,
-                limit: 10,
-                sortOrder: 'desc',
-            });
+        // Fetch wallet transactions for the 'all' tab
+        await fetchTransactions(wallet, 'all');
+    };
 
-            if (transactions.success && transactions.data) {
-                setWalletTransactions(transactions.data);
-            }
-        } catch (error) {
-            console.error("Error fetching wallet transactions:", error);
-            toast({
-                title: "Error",
-                description: "Failed to fetch wallet transactions",
-                variant: "destructive",
-            });
-        } finally {
-            setIsLoadingTransactions(false);
-        }
+    // Handle tab change
+    const handleTabChange = async (tab: 'all' | 'incoming' | 'outgoing') => {
+        if (!selectedWallet) return;
+
+        setTransactionTab(tab);
+        await fetchTransactions(selectedWallet, tab);
     };
 
     const handleBackToList = () => {
@@ -782,7 +810,35 @@ export default function DashboardPage() {
 
                                 {/* Transactions Section */}
                                 <div>
-                                    <h2 className="text-xl font-bold text-white mb-4">Transaction History</h2>
+                                    <div className="flex justify-between items-center mb-4">
+                                        <h2 className="text-xl font-bold text-white">Transaction History</h2>
+                                        <div className="flex space-x-2">
+                                            <Button 
+                                                variant={transactionTab === 'all' ? 'default' : 'outline'} 
+                                                size="sm"
+                                                onClick={() => handleTabChange('all')}
+                                                className={transactionTab === 'all' ? 'bg-[#a99fec] text-[#222222] hover:bg-[#9888db]' : 'text-gray-400 hover:text-[#a99fec]'}
+                                            >
+                                                All Transactions
+                                            </Button>
+                                            <Button 
+                                                variant={transactionTab === 'incoming' ? 'default' : 'outline'} 
+                                                size="sm"
+                                                onClick={() => handleTabChange('incoming')}
+                                                className={transactionTab === 'incoming' ? 'bg-[#a99fec] text-[#222222] hover:bg-[#9888db]' : 'text-gray-400 hover:text-[#a99fec]'}
+                                            >
+                                                Incoming
+                                            </Button>
+                                            <Button 
+                                                variant={transactionTab === 'outgoing' ? 'default' : 'outline'} 
+                                                size="sm"
+                                                onClick={() => handleTabChange('outgoing')}
+                                                className={transactionTab === 'outgoing' ? 'bg-[#a99fec] text-[#222222] hover:bg-[#9888db]' : 'text-gray-400 hover:text-[#a99fec]'}
+                                            >
+                                                Outgoing
+                                            </Button>
+                                        </div>
+                                    </div>
                                     <Card className="bg-[#2a2a2a] border-[#3a3a3a]">
                                         <div className="p-4">
                                             <div className="grid grid-cols-12 text-sm font-medium text-gray-400 border-b border-[#3a3a3a] pb-2">
