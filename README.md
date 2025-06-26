@@ -1,15 +1,15 @@
-# BluePay Wallet — Secure Web Wallet for Ethereum & BNB Chain
+# Wollet APP — Secure Web Wallet for Ethereum & BNB Chain
 
 <p align="center">
-  <img src="public/bluepay-logo.svg" width="140" alt="BluePay Logo" />
+  <img src="public/file.svg" width="140" alt="Wollet APP Logo" />
 </p>
 
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Next.js 14](https://img.shields.io/badge/next.js-14-blue)](https://nextjs.org/)
 [![API Provider](https://img.shields.io/badge/API_Provider-cryptowebapi.com-0070e0)](https://cryptowebapi.com)
 
-**BluePay Wallet** is an open-source, browser-based Web3 wallet focused on a clean user experience and straightforward key management.  
-Blockchain data is fetched through a public HTTP API that follows the endpoints documented at **cryptowebapi.com**; any service implementing the same schema will work out of the box.
+**Wollet APP** is an open-source, browser-based Web3 wallet focused on a clean user experience and straightforward key management.  
+Visit us at **www.wollet.app**. Blockchain data is fetched through a public HTTP API that follows the endpoints documented at **cryptowebapi.com**; any service implementing the same schema will work out of the box.
 
 ---
 
@@ -28,8 +28,8 @@ Blockchain data is fetched through a public HTTP API that follows the endpoints 
 
 ```bash
 # 1 – Clone
-git clone https://github.com/your-org/bluepay-wallet.git
-cd bluepay-wallet
+git clone https://github.com/your-org/wollet.git
+cd wollet
 
 # 2 – Install deps
 pnpm install      # or npm / yarn
@@ -49,13 +49,13 @@ Need a key? Most users grab one in a minute at the reference implementation's si
 
 ```bash
 # Build the Docker image
-docker build -t bluepay-wallet .
+docker build -t wollet-app .
 
 # Run the container
 docker run -p 3000:3000 \
   -e NEXTAUTH_SECRET=your_secure_secret \
   -e CRYPTOWEBAPI_KEY=your_api_key \
-  bluepay-wallet
+  wollet-app
 ```
 
 For production deployment, make sure to:
@@ -88,4 +88,4 @@ Keep tests green with `pnpm test` before opening a PR.
 
 ## 📜 License
 
-Released under the **MIT License**. Feel free to fork, audit, and build upon BluePay.
+Released under the **MIT License**. Feel free to fork, audit, and build upon Wollet APP.

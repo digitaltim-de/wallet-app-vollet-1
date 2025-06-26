@@ -15,33 +15,33 @@ export default function LoginOrCreatePage() {
   const router = useRouter();
   const { toast } = useToast();
   const { unlocked, login, createAccount } = useAccountStore();
-  
+
   // Form state
   const [passphrase, setPassphrase] = useState("");
   const [confirmPassphrase, setConfirmPassphrase] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
-  
+
   // UI state
   const [hasExistingAccounts, setHasExistingAccounts] = useState<boolean | null>(null);
   const [activeTab, setActiveTab] = useState<"login" | "create">("login");
-  
+
   // Check if user is already logged in
   useEffect(() => {
     if (unlocked) {
       router.push("/dashboard");
     }
   }, [unlocked, router]);
-  
+
   // Check if there are any existing accounts
   useEffect(() => {
     const checkExistingAccounts = async () => {
       try {
         const dbList = await indexedDB.databases();
-        const hasAccounts = dbList.some(db => db.name?.startsWith("bp_"));
+        const hasAccounts = dbList.some(db => db.name?.startsWith("wl_"));
         setHasExistingAccounts(hasAccounts);
-        
+
         // If no accounts exist, default to create tab
         if (!hasAccounts) {
           setActiveTab("create");
@@ -51,19 +51,19 @@ export default function LoginOrCreatePage() {
         setHasExistingAccounts(false);
       }
     };
-    
+
     checkExistingAccounts();
   }, []);
-  
+
   // Handle login
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError("");
-    
+
     try {
       const result = await login(passphrase);
-      
+
       switch (result) {
         case "ok":
           router.push("/dashboard");
@@ -91,30 +91,30 @@ export default function LoginOrCreatePage() {
       setIsLoading(false);
     }
   };
-  
+
   // Handle account creation
   const handleCreateAccount = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError("");
-    
+
     // Validate passphrases match
     if (passphrase !== confirmPassphrase) {
       setError("Passphrases do not match");
       setIsLoading(false);
       return;
     }
-    
+
     // Validate passphrase strength
     if (passphrase.length < 8) {
       setError("Passphrase must be at least 8 characters long");
       setIsLoading(false);
       return;
     }
-    
+
     try {
       const result = await createAccount(passphrase);
-      
+
       switch (result) {
         case "created":
           toast({
@@ -140,7 +140,7 @@ export default function LoginOrCreatePage() {
       setIsLoading(false);
     }
   };
-  
+
   // Loading state while checking for existing accounts
   if (hasExistingAccounts === null) {
     return (
@@ -152,7 +152,7 @@ export default function LoginOrCreatePage() {
       </div>
     );
   }
-  
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-[#222222] p-4 sm:p-6">
       <div className="w-full max-w-md space-y-8">
@@ -160,7 +160,7 @@ export default function LoginOrCreatePage() {
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-[#2a2a2a] mb-4">
             <Wallet className="h-8 w-8 text-[#a99fec]" />
           </div>
-          <h1 className="text-2xl font-bold text-white">BluePay Wallet</h1>
+          <h1 className="text-2xl font-bold text-white">Wollet APP</h1>
           <p className="text-gray-400">Secure, simple crypto management</p>
         </div>
 
@@ -184,7 +184,7 @@ export default function LoginOrCreatePage() {
               Create Account
             </TabsTrigger>
           </TabsList>
-          
+
           {/* Login Tab */}
           <TabsContent value="login">
             <Card className="bg-[#2a2a2a] border-0 shadow-none text-white">
@@ -234,7 +234,7 @@ export default function LoginOrCreatePage() {
               </form>
             </Card>
           </TabsContent>
-          
+
           {/* Create Account Tab */}
           <TabsContent value="create">
             <Card className="bg-[#2a2a2a] border-0 shadow-none text-white">
@@ -255,7 +255,7 @@ export default function LoginOrCreatePage() {
                       </p>
                     </CardContent>
                   </Card>
-                  
+
                   <div className="space-y-2">
                     <Label htmlFor="create-passphrase" className="text-gray-300">Passphrase</Label>
                     <div className="relative">
@@ -277,7 +277,7 @@ export default function LoginOrCreatePage() {
                       </button>
                     </div>
                   </div>
-                  
+
                   <div className="space-y-2">
                     <Label htmlFor="confirm-passphrase" className="text-gray-300">Confirm Passphrase</Label>
                     <Input
@@ -290,7 +290,7 @@ export default function LoginOrCreatePage() {
                       autoComplete="new-password"
                     />
                   </div>
-                  
+
                   {error && (
                     <div className="bg-[#3a2a2a] p-3 rounded-lg flex items-start border border-red-900">
                       <AlertCircle className="w-5 h-5 text-red-500 mr-2 mt-0.5" />

@@ -17,7 +17,7 @@ const interMono = Inter({
 
 
 export const metadata: Metadata = {
-  title: "BluePay Wallet",
+  title: "Wollet APP",
   description: "Secure, modern web wallet for Ethereum and BNB Chain",
 };
 

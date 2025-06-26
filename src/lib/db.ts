@@ -29,7 +29,7 @@ interface WalletDB extends DBSchema {
 }
 
 // Database name and version
-const DB_NAME = 'bluepay';
+const DB_NAME = 'wollet';
 const DB_VERSION = 1;
 
 // Database connection

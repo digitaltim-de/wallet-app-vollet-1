@@ -118,6 +118,11 @@ export default function DashboardPage() {
     const [walletTransactions, setWalletTransactions] = useState<TransactionData[]>([]);
     const [transactionTab, setTransactionTab] = useState<'all' | 'incoming' | 'outgoing'>('all');
 
+    // Pagination states
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(50);
+    const [totalTransactions, setTotalTransactions] = useState(0);
+
     // Load wallets from IndexedDB on component mount
     useEffect(() => {
         const loadWallets = async () => {
@@ -226,14 +231,15 @@ export default function DashboardPage() {
     };
 
     // Function to fetch transactions based on the selected tab
-    const fetchTransactions = async (wallet: WalletType, tab: 'all' | 'incoming' | 'outgoing') => {
+    const fetchTransactions = async (wallet: WalletType, tab: 'all' | 'incoming' | 'outgoing', page = 1, perPage = itemsPerPage) => {
         if (!wallet) return;
 
         setIsLoadingTransactions(true);
         try {
             const params: any = {
                 network: wallet.network,
-                limit: 50,
+                limit: perPage,
+                offset: (page - 1) * perPage, // Calculate offset based on page number
                 sortBy: 'timestamp',
                 sortOrder: 'desc',
             };
@@ -251,6 +257,27 @@ export default function DashboardPage() {
 
             if (transactions.success && transactions.data) {
                 setWalletTransactions(transactions.data);
+
+                // Store total count if available in the response
+                // The API might return total count in different ways, check both possibilities
+                if (transactions.total !== undefined) {
+                    setTotalTransactions(transactions.total);
+                } else if (transactions.meta && transactions.meta.total !== undefined) {
+                    setTotalTransactions(transactions.meta.total);
+                } else {
+                    // If no total count is available, use the length of the data array
+                    // This is not ideal but provides a fallback
+                    console.warn('No total count available in API response, using data length as fallback');
+                    setTotalTransactions(Math.max(totalTransactions, (page - 1) * perPage + transactions.data.length));
+                }
+
+                // Update current page
+                setCurrentPage(page);
+
+                // Update items per page if it changed
+                if (perPage !== itemsPerPage) {
+                    setItemsPerPage(perPage);
+                }
             }
         } catch (error) {
             console.error("Error fetching wallet transactions:", error);
@@ -307,11 +334,25 @@ export default function DashboardPage() {
         if (!selectedWallet) return;
 
         setTransactionTab(tab);
-        await fetchTransactions(selectedWallet, tab);
+        // Reset to first page when changing tabs
+        await fetchTransactions(selectedWallet, tab, 1, itemsPerPage);
     };
 
     const handleBackToList = () => {
         setSelectedWallet(null);
+    };
+
+    // Handle page change
+    const handlePageChange = async (page: number) => {
+        if (!selectedWallet) return;
+        await fetchTransactions(selectedWallet, transactionTab, page, itemsPerPage);
+    };
+
+    // Handle items per page change
+    const handleItemsPerPageChange = async (perPage: number) => {
+        if (!selectedWallet) return;
+        // When changing items per page, reset to first page
+        await fetchTransactions(selectedWallet, transactionTab, 1, perPage);
     };
 
     // Handle wallet creation
@@ -404,7 +445,7 @@ export default function DashboardPage() {
                     <div className="container mx-auto flex justify-between items-center">
                         <div className="flex items-center space-x-2">
                             <WalletIcon className="h-5 w-5 text-[#a99fec]"/>
-                            <span className="font-bold text-lg text-[#a99fec]">BluePay Wallet</span>
+                            <span className="font-bold text-lg text-[#a99fec]">Wollet APP</span>
                         </div>
                         <div className="flex items-center space-x-4">
                             <Button
@@ -891,6 +932,135 @@ export default function DashboardPage() {
                                             ) : (
                                                 <div className="py-8 text-center text-gray-400">
                                                     No transactions found for this wallet
+                                                </div>
+                                            )}
+
+                                            {/* Pagination */}
+                                            {!isLoadingTransactions && walletTransactions.length > 0 && (
+                                                <div className="mt-6 flex flex-col sm:flex-row justify-between items-center border-t border-[#3a3a3a] pt-4">
+                                                    <div className="flex items-center mb-4 sm:mb-0">
+                                                        <span className="text-sm text-gray-400 mr-2">Items per page:</span>
+                                                        <Select
+                                                            value={String(itemsPerPage)}
+                                                            onValueChange={(value) => handleItemsPerPageChange(Number(value))}
+                                                        >
+                                                            <SelectTrigger className="w-20 h-8 bg-[#333333] border-[#444444] text-white text-sm">
+                                                                <SelectValue placeholder="50" />
+                                                            </SelectTrigger>
+                                                            <SelectContent className="bg-[#333333] border-[#444444] text-white">
+                                                                <SelectItem value="50">50</SelectItem>
+                                                                <SelectItem value="100">100</SelectItem>
+                                                                <SelectItem value="200">200</SelectItem>
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </div>
+
+                                                    <div className="flex items-center">
+                                                        <div className="flex space-x-1">
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                onClick={() => handlePageChange(1)}
+                                                                disabled={currentPage === 1}
+                                                                className="h-8 w-8 p-0 text-gray-400 hover:text-[#a99fec]"
+                                                            >
+                                                                <span>«</span>
+                                                            </Button>
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                onClick={() => handlePageChange(currentPage - 1)}
+                                                                disabled={currentPage === 1}
+                                                                className="h-8 w-8 p-0 text-gray-400 hover:text-[#a99fec]"
+                                                            >
+                                                                <span>‹</span>
+                                                            </Button>
+
+                                                            {/* Page numbers */}
+                                                            {(() => {
+                                                                const totalPages = Math.ceil(totalTransactions / itemsPerPage);
+                                                                const pages = [];
+
+                                                                // Logic to show limited page numbers with ellipsis
+                                                                if (totalPages <= 7) {
+                                                                    // Show all pages if 7 or fewer
+                                                                    for (let i = 1; i <= totalPages; i++) {
+                                                                        pages.push(i);
+                                                                    }
+                                                                } else {
+                                                                    // Always show first page
+                                                                    pages.push(1);
+
+                                                                    // Show ellipsis if current page is > 3
+                                                                    if (currentPage > 3) {
+                                                                        pages.push(-1); // -1 represents ellipsis
+                                                                    }
+
+                                                                    // Show pages around current page
+                                                                    const startPage = Math.max(2, currentPage - 1);
+                                                                    const endPage = Math.min(totalPages - 1, currentPage + 1);
+
+                                                                    for (let i = startPage; i <= endPage; i++) {
+                                                                        pages.push(i);
+                                                                    }
+
+                                                                    // Show ellipsis if current page is < totalPages - 2
+                                                                    if (currentPage < totalPages - 2) {
+                                                                        pages.push(-2); // -2 represents ellipsis
+                                                                    }
+
+                                                                    // Always show last page
+                                                                    pages.push(totalPages);
+                                                                }
+
+                                                                return pages.map((page, index) => {
+                                                                    if (page < 0) {
+                                                                        // Render ellipsis
+                                                                        return (
+                                                                            <span key={`ellipsis-${index}`} className="h-8 w-8 flex items-center justify-center text-gray-400">
+                                                                                …
+                                                                            </span>
+                                                                        );
+                                                                    }
+
+                                                                    return (
+                                                                        <Button
+                                                                            key={page}
+                                                                            variant={currentPage === page ? "default" : "outline"}
+                                                                            size="sm"
+                                                                            onClick={() => handlePageChange(page)}
+                                                                            className={`h-8 w-8 p-0 ${
+                                                                                currentPage === page 
+                                                                                    ? 'bg-[#a99fec] text-[#222222] hover:bg-[#9888db]' 
+                                                                                    : 'text-gray-400 hover:text-[#a99fec]'
+                                                                            }`}
+                                                                        >
+                                                                            <span>{page}</span>
+                                                                        </Button>
+                                                                    );
+                                                                });
+                                                            })()}
+
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                onClick={() => handlePageChange(currentPage + 1)}
+                                                                disabled={currentPage === Math.ceil(totalTransactions / itemsPerPage)}
+                                                                className="h-8 w-8 p-0 text-gray-400 hover:text-[#a99fec]"
+                                                            >
+                                                                <span>›</span>
+                                                            </Button>
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                onClick={() => handlePageChange(Math.ceil(totalTransactions / itemsPerPage))}
+                                                                disabled={currentPage === Math.ceil(totalTransactions / itemsPerPage)}
+                                                                className="h-8 w-8 p-0 text-gray-400 hover:text-[#a99fec]"
+                                                            >
+                                                                <span>»</span>
+                                                            </Button>
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             )}
                                         </div>
