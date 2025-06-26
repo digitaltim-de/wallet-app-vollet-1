@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Wallet, Key, Eye, EyeOff, AlertCircle, CheckCircle2, Shield } from "lucide-react";
+import { Wallet, Key, Eye, EyeOff, AlertCircle, CheckCircle2, Shield, Upload } from "lucide-react";
+import { ImportDBDialog } from "@/components/import-db-dialog";
 import { useAccountStore } from "@/store/account";
 import { useToast } from "@/components/ui/use-toast";
 
@@ -156,7 +157,10 @@ export default function LoginOrCreatePage() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-[#222222] p-4 sm:p-6">
       <div className="w-full max-w-md space-y-8">
-        <div className="text-center space-y-2">
+        <div className="text-center space-y-2 relative">
+          <div className="absolute top-0 right-0">
+            <ImportDBDialog showLabel={true} />
+          </div>
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-[#2a2a2a] mb-4">
             <Wallet className="h-8 w-8 text-[#a99fec]" />
           </div>

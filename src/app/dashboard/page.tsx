@@ -2,7 +2,8 @@
 
 import {useEffect, useState} from "react";
 import {useRouter} from "next/navigation";
-import {Copy, Eye, EyeOff, LogOut, Plus, Settings, Shield, TrendingDown, TrendingUp, WalletIcon} from "lucide-react";
+import {Copy, Eye, EyeOff, LogOut, Plus, Settings, Shield, TrendingDown, TrendingUp, WalletIcon, Upload} from "lucide-react";
+import { ImportDBDialog } from "@/components/import-db-dialog";
 import {Card, CardContent} from "@/components/ui/card";
 import {Button} from "@/components/ui/button";
 import {Badge} from "@/components/ui/badge";
@@ -456,6 +457,7 @@ export default function DashboardPage() {
                             >
                                 {balanceVisible ? <EyeOff size={18}/> : <Eye size={18}/>}
                             </Button>
+                            <ImportDBDialog />
                             <Button
                                 variant="ghost"
                                 size="icon"
