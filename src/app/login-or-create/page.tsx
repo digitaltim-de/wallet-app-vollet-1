@@ -39,7 +39,7 @@ export default function LoginOrCreatePage() {
     const checkExistingAccounts = async () => {
       try {
         const dbList = await indexedDB.databases();
-        const hasAccounts = dbList.some(db => db.name?.startsWith("wl_"));
+        const hasAccounts = dbList.some(db => db.name?.startsWith("bp_"));
         setHasExistingAccounts(hasAccounts);
 
         // If no accounts exist, default to create tab
@@ -165,7 +165,7 @@ export default function LoginOrCreatePage() {
         </div>
 
         <Tabs 
-          defaultValue={activeTab} 
+          value={activeTab} 
           onValueChange={(value) => setActiveTab(value as "login" | "create")}
           className="space-y-4"
         >
