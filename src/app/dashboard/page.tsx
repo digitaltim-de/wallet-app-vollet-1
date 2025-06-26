@@ -459,6 +459,7 @@ export default function DashboardPage() {
                             <Button
                                 variant="ghost"
                                 size="icon"
+                                onClick={() => router.push("/settings")}
                                 className="text-gray-400 hover:text-[#a99fec]"
                             >
                                 <Settings size={18}/>
