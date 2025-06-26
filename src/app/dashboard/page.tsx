@@ -1,491 +1,669 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import Image from "next/image";
-import { 
-  WalletIcon, 
-  Plus, 
-  ArrowRight, 
-  Search, 
-  EyeOff, 
-  Eye, 
-  ArrowLeft, 
-  Settings, 
-  LogOut, 
-  Copy, 
-  ArrowDownToLine, 
-  ArrowUpFromLine, 
-  ArrowUpCircle,
-  ArrowUpRight,
-  ArrowDownLeft, 
-  Wallet, 
-  Sparkles, 
-  TrendingUp, 
-  TrendingDown, 
-  ChevronRight, 
-  Bell,
-  AlertCircle,
-  ExternalLink,
-  Send,
-  Zap,
-  Globe,
-  QrCode,
-  Shield
-} from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useToast } from "@/components/ui/use-toast";
-import { RouteGuard } from "@/components/route-guard";
-import { CryptoWebApi } from "@/lib/cryptowebapi";
-import { CryptoWebApiClient } from 'cryptowebapi-connector-js';
-import { useAccountStore } from "@/store/account";
-import { Wallet as WalletType, getAllWallets, saveWallet } from "@/lib/accountDb";
-import { encryptPrivateKey } from "@/lib/crypto";
+import {useEffect, useState} from "react";
+import {useRouter} from "next/navigation";
+import {Copy, Eye, EyeOff, LogOut, Plus, Settings, Shield, TrendingDown, TrendingUp, WalletIcon} from "lucide-react";
+import {Card, CardContent} from "@/components/ui/card";
+import {Button} from "@/components/ui/button";
+import {Badge} from "@/components/ui/badge";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle
+} from "@/components/ui/dialog";
+import {Input} from "@/components/ui/input";
+import {Label} from "@/components/ui/label";
+import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select";
+import {useToast} from "@/components/ui/use-toast";
+import {RouteGuard} from "@/components/route-guard";
+import {CryptoWebApi} from "@/lib/cryptowebapi";
+import {CryptoWebApiClient} from 'cryptowebapi-connector-js';
+import {useAccountStore} from "@/store/account";
+import {getAllWallets, saveWallet, Wallet as WalletType} from "@/lib/accountDb";
+import {encryptPrivateKey} from "@/lib/crypto";
 
 // Initialize API clients
 const apiClient = new CryptoWebApi(process.env.NEXT_PUBLIC_CRYPTOWEBAPI_KEY || "");
 const cryptoWebApiClient = new CryptoWebApiClient({
-  apiKey: process.env.NEXT_PUBLIC_CRYPTOWEBAPI_KEY || "",
+    apiKey: process.env.NEXT_PUBLIC_CRYPTOWEBAPI_KEY || "",
 });
 
 // Types
 interface Token {
-  symbol: string;
-  name: string;
-  balance: number;
-  balanceUSD: number;
-  price: number;
-  change24h: number;
+    symbol: string;
+    name: string;
+    balance: number;
+    balanceUSD: number;
+    price: number;
+    change24h: number;
 }
 
 interface Transaction {
-  id: string;
-  type: "send" | "receive";
-  amount: number;
-  symbol: string;
-  to?: string;
-  from?: string;
-  timestamp: number;
-  status: "pending" | "confirmed" | "failed";
-  hash: string;
+    id: string;
+    type: "send" | "receive";
+    amount: number;
+    symbol: string;
+    to?: string;
+    from?: string;
+    timestamp: number;
+    status: "pending" | "confirmed" | "failed";
+    hash: string;
 }
 
 interface Wallet {
-  id: string;
-  name: string;
-  address: string;
-  network: "ethereum" | "bnb";
-  balance: number;
-  balanceUSD: number;
-  change24h: number;
-  changePercent24h: number;
-  tokens: Token[];
-  transactions: Transaction[];
+    id: string;
+    name: string;
+    address: string;
+    network: "ethereum" | "bnb";
+    balance: number;
+    balanceUSD: number;
+    change24h: number;
+    changePercent24h: number;
+    tokens: Token[];
+    transactions: Transaction[];
 }
 
 export default function DashboardPage() {
-  const router = useRouter();
-  const { lock, db } = useAccountStore();
-  const { toast } = useToast();
+    const router = useRouter();
+    const {lock, db} = useAccountStore();
+    const {toast} = useToast();
 
-  const [wallets, setWallets] = useState<WalletType[]>([]);
-  const [selectedWallet, setSelectedWallet] = useState<WalletType | null>(null);
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [balanceVisible, setBalanceVisible] = useState(true);
-  const [newlyCreatedWallet, setNewlyCreatedWallet] = useState<{
-    address: string;
-    privateKey: string;
-    mnemonic?: string;
-    network: "ethereum" | "bnb";
-    name: string;
-  } | null>(null);
+    const [wallets, setWallets] = useState<WalletType[]>([]);
+    const [selectedWallet, setSelectedWallet] = useState<WalletType | null>(null);
+    const [showCreateModal, setShowCreateModal] = useState(false);
+    const [showSuccessModal, setShowSuccessModal] = useState(false);
+    const [balanceVisible, setBalanceVisible] = useState(true);
+    const [newlyCreatedWallet, setNewlyCreatedWallet] = useState<{
+        address: string;
+        privateKey: string;
+        mnemonic?: string;
+        network: "ethereum" | "bnb";
+        name: string;
+    } | null>(null);
 
-  // Load wallets from IndexedDB on component mount
-  useEffect(() => {
-    const loadWallets = async () => {
-      if (db) {
-        try {
-          const loadedWallets = await getAllWallets(db);
-          setWallets(loadedWallets);
-        } catch (error) {
-          console.error("Error loading wallets:", error);
-        }
-      }
-    };
+    // Load wallets from IndexedDB on component mount
+    useEffect(() => {
+        const loadWallets = async () => {
+            if (db) {
+                try {
+                    const loadedWallets = await getAllWallets(db);
+                    setWallets(loadedWallets);
+                } catch (error) {
+                    console.error("Error loading wallets:", error);
+                }
+            }
+        };
 
-    loadWallets();
-  }, [db]);
+        loadWallets();
+    }, [db]);
 
-  // Form state for adding wallets
-  const [newWalletForm, setNewWalletForm] = useState({
-    name: "",
-    address: "",
-    network: "ethereum" as "ethereum" | "bnb",
-    balance: "",
-    balanceUSD: "",
-  });
-
-  // Form state for creating wallets
-  const [createWalletForm, setCreateWalletForm] = useState({
-    name: "",
-    network: "ethereum" as "ethereum" | "bnb",
-    passphrase: "",
-  });
-
-  // Loading state for wallet creation
-  const [isCreatingWallet, setIsCreatingWallet] = useState(false);
-
-  // Calculations
-  const totalBalance = wallets.reduce((sum, wallet) => sum + wallet.balanceUSD, 0);
-  const totalChange = wallets.reduce((sum, wallet) => sum + wallet.change24h, 0);
-  const totalChangePercent = totalBalance > 0 ? (totalChange / (totalBalance - totalChange)) * 100 : 0;
-
-  // Utility functions
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      minimumFractionDigits: 2,
-    }).format(amount);
-  };
-
-  // Format address for display
-  const formatAddress = (address: string) => {
-    return `${address.slice(0, 6)}...${address.slice(-4)}`;
-  };
-
-  // Format time for display
-  const formatTime = (timestamp: number) => {
-    return new Date(timestamp).toLocaleString();
-  };
-
-  // Copy to clipboard
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-  };
-
-  // Event handlers
-  const handleAddWallet = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!newWalletForm.name || !newWalletForm.address || !newWalletForm.balance || !newWalletForm.balanceUSD || !db) {
-      return;
-    }
-
-    const balanceNum = Number.parseFloat(newWalletForm.balance);
-    const balanceUSDNum = Number.parseFloat(newWalletForm.balanceUSD);
-
-    const newWallet: WalletType = {
-      id: Date.now().toString(),
-      name: newWalletForm.name,
-      address: newWalletForm.address,
-      network: newWalletForm.network,
-      balance: balanceNum,
-      balanceUSD: balanceUSDNum,
-      change24h: 0,
-      changePercent24h: 0,
-      tokens: [],
-      transactions: [],
-    };
-
-    try {
-      // Save to IndexedDB
-      await saveWallet(db, newWallet);
-
-      // Update state
-      setWallets([...wallets, newWallet]);
-      setShowAddModal(false);
-      setNewWalletForm({
+    // Form state for adding wallets
+    const [newWalletForm, setNewWalletForm] = useState({
         name: "",
         address: "",
-        network: "ethereum",
+        network: "ethereum" as "ethereum" | "bnb",
         balance: "",
         balanceUSD: "",
-      });
-    } catch (error) {
-      console.error("Error saving wallet:", error);
-    }
-  };
+    });
 
-  const handleWalletSelect = (wallet: WalletType) => {
-    setSelectedWallet(wallet);
-  };
-
-  const handleBackToList = () => {
-    setSelectedWallet(null);
-  };
-
-  // Handle wallet creation
-  const handleCreateWallet = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!createWalletForm.name || !createWalletForm.network || !createWalletForm.passphrase || !db) {
-      return;
-    }
-
-    setIsCreatingWallet(true);
-
-    try {
-      // Create wallet using CryptoWebApiClient
-      const newWallet = await cryptoWebApiClient.createWallet({ 
-        network: createWalletForm.network 
-      });
-
-      // Check if privateKey exists in the response
-      if (!newWallet.key) {
-        console.log(newWallet);
-        throw new Error('Private key is missing in the wallet creation response');
-      }
-
-      // Encrypt private key and mnemonic with passphrase
-      const encryptedPrivateKey = await encryptPrivateKey(newWallet.key, createWalletForm.passphrase);
-
-      // Check if mnemonic exists in the response
-      let encryptedMnemonic = undefined;
-      if (newWallet.mnemonic && true) {
-        encryptedMnemonic = await encryptPrivateKey(newWallet.mnemonic, createWalletForm.passphrase);
-      }
-
-      // Create wallet object
-      const walletData: WalletType = {
-        id: Date.now().toString(),
-        name: createWalletForm.name,
-        address: newWallet.address,
-        network: createWalletForm.network,
-        balance: 0,
-        balanceUSD: 0,
-        change24h: 0,
-        changePercent24h: 0,
-        tokens: [],
-        transactions: [],
-        encryptedPrivateKey,
-        encryptedMnemonic,
-      };
-
-      // Save to IndexedDB
-      await saveWallet(db, walletData);
-
-      // Update state
-      setWallets([...wallets, walletData]);
-
-      // Store the newly created wallet data for the success screen
-      setNewlyCreatedWallet({
-        address: newWallet.address,
-        privateKey: newWallet.key,
-        mnemonic: newWallet.mnemonic,
-        network: createWalletForm.network,
-        name: createWalletForm.name
-      });
-
-      // Show success modal instead of closing create modal
-      setShowCreateModal(false);
-      setShowSuccessModal(true);
-
-      // Reset form
-      setCreateWalletForm({
+    // Form state for creating wallets
+    const [createWalletForm, setCreateWalletForm] = useState({
         name: "",
-        network: "ethereum",
+        network: "ethereum" as "ethereum" | "bnb",
         passphrase: "",
-      });
-    } catch (error) {
-      console.error("Error creating wallet:", error);
-      // Show error message to the user
-      alert(`Error creating wallet2: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    } finally {
-      setIsCreatingWallet(false);
-    }
-  };
+    });
 
-  return (
-    <RouteGuard>
-      <div className="min-h-screen bg-[#222222] text-white">
-        <header className="border-b border-[#2a2a2a] p-4">
-          <div className="container mx-auto flex justify-between items-center">
-            <div className="flex items-center space-x-2">
-              <WalletIcon className="h-5 w-5 text-[#a99fec]" />
-              <span className="font-bold text-lg text-[#a99fec]">BluePay Wallet</span>
-            </div>
-            <div className="flex items-center space-x-4">
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={() => setBalanceVisible(!balanceVisible)}
-                className="text-gray-400 hover:text-[#a99fec]"
-              >
-                {balanceVisible ? <EyeOff size={18} /> : <Eye size={18} />}
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="icon"
-                className="text-gray-400 hover:text-[#a99fec]"
-              >
-                <Settings size={18} />
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={() => {
-                  lock();
-                  router.push("/login-or-create");
-                }}
-                className="text-gray-400 hover:text-[#a99fec]"
-              >
-                <LogOut size={18} />
-              </Button>
-            </div>
-          </div>
-        </header>
+    // Loading state for wallet creation
+    const [isCreatingWallet, setIsCreatingWallet] = useState(false);
 
-        <main className="container mx-auto p-4 md:p-6">
-          <div className="mb-8">
-            <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-2">
-              <div>
-                <h1 className="text-2xl font-bold mb-1 text-white">Portfolio</h1>
-                <div className="flex items-center space-x-2">
-                  <div className="text-3xl font-bold text-[#a99fec]">
-                    {balanceVisible 
-                      ? formatCurrency(totalBalance) 
-                      : "••••••"
-                    }
-                  </div>
-                  <Badge className={`${totalChangePercent >= 0 ? 'bg-green-900/20 text-green-500' : 'bg-red-900/20 text-red-500'} border-0`}>
-                    {totalChangePercent >= 0 
-                      ? <TrendingUp className="w-3 h-3 mr-1" /> 
-                      : <TrendingDown className="w-3 h-3 mr-1" />
-                    }
-                    {totalChangePercent.toFixed(2)}%
-                  </Badge>
-                </div>
-              </div>
-              <div className="flex space-x-2 mt-4 sm:mt-0">
-                <Button 
-                  onClick={() => setShowAddModal(true)}
-                  className="bg-[#a99fec] text-[#222222] hover:bg-[#9888db]"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Wallet
-                </Button>
-              </div>
-            </div>
-          </div>
-          <div className="mb-8">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-white">Your Wallets</h2>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {wallets.length > 0 ? (
-                wallets.map((wallet) => (
-                  <Card 
-                    key={wallet.id} 
-                    className="bg-[#2a2a2a] border-[#2a2a2a] hover:border-[#a99fec] border transition-colors overflow-hidden cursor-pointer"
-                    onClick={() => setSelectedWallet(wallet)}
-                  >
-                    <CardContent className="p-4">
-                      <div className="flex justify-between items-start mb-3">
-                        <div className="flex items-center">
-                          {wallet.network === "ethereum" ? (
-                            <div className="w-8 h-8 rounded-full bg-blue-600/20 flex items-center justify-center mr-3">
-                              <svg className="w-5 h-5 text-blue-500" viewBox="0 0 784.37 1277.39" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M392.07 0L383.5 29.11V873.74L392.07 882.29L784.13 650.54L392.07 0Z" fill="#343434"/>
-                                <path d="M392.07 0L0 650.54L392.07 882.29V472.33V0Z" fill="#8C8C8C"/>
-                                <path d="M392.07 956.52L387.24 962.41V1263.28L392.07 1277.38L784.37 724.89L392.07 956.52Z" fill="#3C3C3B"/>
-                                <path d="M392.07 1277.38V956.52L0 724.89L392.07 1277.38Z" fill="#8C8C8C"/>
-                                <path d="M392.07 882.29L784.13 650.54L392.07 472.33V882.29Z" fill="#141414"/>
-                                <path d="M0 650.54L392.07 882.29V472.33L0 650.54Z" fill="#393939"/>
-                              </svg>
-                            </div>
-                          ) : (
-                            <div className="w-8 h-8 rounded-full bg-yellow-600/20 flex items-center justify-center mr-3">
-                              <svg className="w-5 h-5 text-yellow-500" viewBox="0 0 2500 2500" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M764.48,1050.52,1250,565l485.75,485.73,282.5-282.5L1250,0,482,768l282.49,282.5" fill="#F0B90B"/>
-                                <path d="M302.61,1250,585.11,967.52,302.61,685,20.11,967.52ZM764.48,1449.51l485.52-485.75,282.5,282.5-485.52,485.75L764.48,2014.5,481.76,1732" fill="#F0B90B"/>
-                                <path d="M397.13,1267.42,1250,420.55l852.87,846.87L1733.16,1637,1250,1154l-483.45,483.44-369.42-369.42" fill="#F0B90B"/>
-                                <path d="M1250,1733.76l483.16-483.44,282.49,282.5L1250,2500,482.48,1732.5,764.48,1450" fill="#F0B90B"/>
-                              </svg>
-                            </div>
-                          )}
-                          <div>
-                            <div className="font-semibold text-white">{wallet.name}</div>
-                            <div className="text-xs text-gray-400 flex items-center">
-                              {formatAddress(wallet.address)}
-                              <button 
-                                className="ml-1 text-gray-400 hover:text-[#a99fec]"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  copyToClipboard(wallet.address);
-                                  toast.show({
-                                    title: "Address copied",
-                                    description: "Wallet address copied to clipboard",
-                                  });
+    // Calculations
+    const totalBalance = wallets.reduce((sum, wallet) => sum + wallet.balanceUSD, 0);
+    const totalChange = wallets.reduce((sum, wallet) => sum + wallet.change24h, 0);
+    const totalChangePercent = totalBalance > 0 ? (totalChange / (totalBalance - totalChange)) * 100 : 0;
+
+    // Utility functions
+    const formatCurrency = (amount: number) => {
+        return new Intl.NumberFormat("en-US", {
+            style: "currency",
+            currency: "USD",
+            minimumFractionDigits: 2,
+        }).format(amount);
+    };
+
+    // Format address for display
+    const formatAddress = (address: string) => {
+        return `${address.slice(0, 6)}...${address.slice(-4)}`;
+    };
+
+    // Format time for display
+    const formatTime = (timestamp: number) => {
+        return new Date(timestamp).toLocaleString();
+    };
+
+    // Copy to clipboard
+    const copyToClipboard = (text: string) => {
+        navigator.clipboard.writeText(text);
+    };
+
+    // Event handlers
+    const handleAddWallet = async (e: React.FormEvent) => {
+        e.preventDefault();
+
+        if (!newWalletForm.name || !newWalletForm.address || !newWalletForm.balance || !newWalletForm.balanceUSD || !db) {
+            return;
+        }
+
+        alert('test');
+        const balanceNum = Number.parseFloat(newWalletForm.balance);
+        const balanceUSDNum = Number.parseFloat(newWalletForm.balanceUSD);
+
+        const newWallet: WalletType = {
+            id: Date.now().toString(),
+            name: newWalletForm.name,
+            address: newWalletForm.address,
+            network: newWalletForm.network,
+            balance: balanceNum,
+            balanceUSD: balanceUSDNum,
+            change24h: 0,
+            changePercent24h: 0,
+            tokens: [],
+            transactions: [],
+        };
+
+        try {
+            // Save to IndexedDB
+            await saveWallet(db, newWallet);
+
+            // Update state
+            setWallets([...wallets, newWallet]);
+            setNewWalletForm({
+                name: "",
+                address: "",
+                network: "ethereum",
+                balance: "",
+                balanceUSD: "",
+            });
+        } catch (error) {
+            console.error("Error saving wallet:", error);
+        }
+    };
+
+    const handleWalletSelect = (wallet: WalletType) => {
+        setSelectedWallet(wallet);
+    };
+
+    const handleBackToList = () => {
+        setSelectedWallet(null);
+    };
+
+    // Handle wallet creation
+    const handleCreateWallet = async (e: React.FormEvent) => {
+        e.preventDefault();
+
+        if (!createWalletForm.name || !createWalletForm.network || !createWalletForm.passphrase || !db) {
+            return;
+        }
+
+        setIsCreatingWallet(true);
+
+        try {
+            // Create wallet using CryptoWebApiClient
+            const newWallet = await cryptoWebApiClient.createWallet({
+                network: createWalletForm.network
+            });
+
+            console.log('newwalletData', newWallet);
+
+            // Check if privateKey exists in the response
+            if (!newWallet.key) {
+                console.log(newWallet);
+                throw new Error('Private key is missing in the wallet creation response');
+            }
+
+            // Encrypt private key and mnemonic with passphrase
+            const encryptedPrivateKey = await encryptPrivateKey(newWallet.key, createWalletForm.passphrase);
+
+            // Check if mnemonic exists in the response
+            let encryptedMnemonic = undefined;
+            if (newWallet.mnemonic && true) {
+                encryptedMnemonic = await encryptPrivateKey(newWallet.mnemonic, createWalletForm.passphrase);
+            }
+
+            // Create wallet object
+            const walletData: WalletType = {
+                id: Date.now().toString(),
+                name: createWalletForm.name,
+                address: newWallet.address,
+                network: createWalletForm.network,
+                balance: 0,
+                balanceUSD: 0,
+                change24h: 0,
+                changePercent24h: 0,
+                tokens: [],
+                transactions: [],
+                encryptedPrivateKey,
+                encryptedMnemonic,
+            };
+
+            // Save to IndexedDB
+            await saveWallet(db, walletData);
+
+            // Update state
+            setWallets([...wallets, walletData]);
+
+            // Store the newly created wallet data for the success screen
+            setNewlyCreatedWallet({
+                address: newWallet.address,
+                privateKey: newWallet.key,
+                mnemonic: newWallet.mnemonic,
+                network: createWalletForm.network,
+                name: createWalletForm.name
+            });
+
+            // Show success modal instead of closing create modal
+            setShowCreateModal(false);
+            setShowSuccessModal(true);
+
+            // Reset form
+            setCreateWalletForm({
+                name: "",
+                network: "ethereum",
+                passphrase: "",
+            });
+        } catch (error) {
+            console.error("Error creating wallet:", error);
+            // Show error message to the user
+            alert(`Error creating wallet2: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        } finally {
+            setIsCreatingWallet(false);
+        }
+    };
+
+    return (
+        <RouteGuard>
+            <div className="min-h-screen bg-[#222222] text-white">
+                <header className="border-b border-[#2a2a2a] p-4">
+                    <div className="container mx-auto flex justify-between items-center">
+                        <div className="flex items-center space-x-2">
+                            <WalletIcon className="h-5 w-5 text-[#a99fec]"/>
+                            <span className="font-bold text-lg text-[#a99fec]">BluePay Wallet</span>
+                        </div>
+                        <div className="flex items-center space-x-4">
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => setBalanceVisible(!balanceVisible)}
+                                className="text-gray-400 hover:text-[#a99fec]"
+                            >
+                                {balanceVisible ? <EyeOff size={18}/> : <Eye size={18}/>}
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="text-gray-400 hover:text-[#a99fec]"
+                            >
+                                <Settings size={18}/>
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => {
+                                    lock();
+                                    router.push("/login-or-create");
                                 }}
-                              >
-                                <Copy size={12} />
-                              </button>
+                                className="text-gray-400 hover:text-[#a99fec]"
+                            >
+                                <LogOut size={18}/>
+                            </Button>
+                        </div>
+                    </div>
+                </header>
+
+                <main className="container mx-auto p-4 md:p-6">
+                    <div className="mb-8">
+                        <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-2">
+                            <div>
+                                <h1 className="text-2xl font-bold mb-1 text-white">Portfolio</h1>
+                                <div className="flex items-center space-x-2">
+                                    <div className="text-3xl font-bold text-[#a99fec]">
+                                        {balanceVisible
+                                            ? formatCurrency(totalBalance)
+                                            : "••••••"
+                                        }
+                                    </div>
+                                    <Badge
+                                        className={`${totalChangePercent >= 0 ? 'bg-green-900/20 text-green-500' : 'bg-red-900/20 text-red-500'} border-0`}>
+                                        {totalChangePercent >= 0
+                                            ? <TrendingUp className="w-3 h-3 mr-1"/>
+                                            : <TrendingDown className="w-3 h-3 mr-1"/>
+                                        }
+                                        {totalChangePercent.toFixed(2)}%
+                                    </Badge>
+                                </div>
                             </div>
-                          </div>
+                            <div className="flex space-x-2 mt-4 sm:mt-0">
+                                <Button
+                                    onClick={() => setShowCreateModal(true)}
+                                    className="bg-[#a99fec] text-[#222222] hover:bg-[#9888db]"
+                                >
+                                    <Plus className="w-4 h-4 mr-2"/>
+                                    Add Wallet
+                                </Button>
+                            </div>
                         </div>
-                        <Badge className="bg-[#2a2a2a] text-[#a99fec] border border-[#3a3a3a]">
-                          {wallet.network === "ethereum" ? "Ethereum" : "BNB Chain"}
-                        </Badge>
-                      </div>
-                      
-                      <div className="space-y-1">
-                        <div className="font-bold text-xl text-white">
-                          {balanceVisible 
-                            ? formatCurrency(wallet.balanceUSD || 0) 
-                            : "••••••"
-                          }
+                    </div>
+                    <div className="mb-8">
+                        <div className="flex items-center justify-between mb-4">
+                            <h2 className="text-xl font-bold text-white">Your Wallets</h2>
                         </div>
-                        <div className="flex items-center text-sm">
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {wallets.length > 0 ? (
+                                wallets.map((wallet) => (
+                                    <Card
+                                        key={wallet.id}
+                                        className="bg-[#2a2a2a] border-[#2a2a2a] hover:border-[#a99fec] border transition-colors overflow-hidden cursor-pointer"
+                                        onClick={() => setSelectedWallet(wallet)}
+                                    >
+                                        <CardContent className="p-4">
+                                            <div className="flex justify-between items-start mb-3">
+                                                <div className="flex items-center">
+                                                    {wallet.network === "ethereum" ? (
+                                                        <div
+                                                            className="w-8 h-8 rounded-full bg-blue-600/20 flex items-center justify-center mr-3">
+                                                            <svg className="w-5 h-5 text-blue-500"
+                                                                 viewBox="0 0 784.37 1277.39" fill="none"
+                                                                 xmlns="http://www.w3.org/2000/svg">
+                                                                <path
+                                                                    d="M392.07 0L383.5 29.11V873.74L392.07 882.29L784.13 650.54L392.07 0Z"
+                                                                    fill="#343434"/>
+                                                                <path d="M392.07 0L0 650.54L392.07 882.29V472.33V0Z"
+                                                                      fill="#8C8C8C"/>
+                                                                <path
+                                                                    d="M392.07 956.52L387.24 962.41V1263.28L392.07 1277.38L784.37 724.89L392.07 956.52Z"
+                                                                    fill="#3C3C3B"/>
+                                                                <path
+                                                                    d="M392.07 1277.38V956.52L0 724.89L392.07 1277.38Z"
+                                                                    fill="#8C8C8C"/>
+                                                                <path
+                                                                    d="M392.07 882.29L784.13 650.54L392.07 472.33V882.29Z"
+                                                                    fill="#141414"/>
+                                                                <path d="M0 650.54L392.07 882.29V472.33L0 650.54Z"
+                                                                      fill="#393939"/>
+                                                            </svg>
+                                                        </div>
+                                                    ) : (
+                                                        <div
+                                                            className="w-8 h-8 rounded-full bg-yellow-600/20 flex items-center justify-center mr-3">
+                                                            <svg className="w-5 h-5 text-yellow-500"
+                                                                 viewBox="0 0 2500 2500" fill="none"
+                                                                 xmlns="http://www.w3.org/2000/svg">
+                                                                <path
+                                                                    d="M764.48,1050.52,1250,565l485.75,485.73,282.5-282.5L1250,0,482,768l282.49,282.5"
+                                                                    fill="#F0B90B"/>
+                                                                <path
+                                                                    d="M302.61,1250,585.11,967.52,302.61,685,20.11,967.52ZM764.48,1449.51l485.52-485.75,282.5,282.5-485.52,485.75L764.48,2014.5,481.76,1732"
+                                                                    fill="#F0B90B"/>
+                                                                <path
+                                                                    d="M397.13,1267.42,1250,420.55l852.87,846.87L1733.16,1637,1250,1154l-483.45,483.44-369.42-369.42"
+                                                                    fill="#F0B90B"/>
+                                                                <path
+                                                                    d="M1250,1733.76l483.16-483.44,282.49,282.5L1250,2500,482.48,1732.5,764.48,1450"
+                                                                    fill="#F0B90B"/>
+                                                            </svg>
+                                                        </div>
+                                                    )}
+                                                    <div>
+                                                        <div className="font-semibold text-white">{wallet.name}</div>
+                                                        <div className="text-xs text-gray-400 flex items-center">
+                                                            {formatAddress(wallet.address)}
+                                                            <button
+                                                                className="ml-1 text-gray-400 hover:text-[#a99fec]"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    copyToClipboard(wallet.address);
+                                                                    toast.show({
+                                                                        title: "Address copied",
+                                                                        description: "Wallet address copied to clipboard",
+                                                                    });
+                                                                }}
+                                                            >
+                                                                <Copy size={12}/>
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <Badge className="bg-[#2a2a2a] text-[#a99fec] border border-[#3a3a3a]">
+                                                    {wallet.network === "ethereum" ? "Ethereum" : "BNB Chain"}
+                                                </Badge>
+                                            </div>
+
+                                            <div className="space-y-1">
+                                                <div className="font-bold text-xl text-white">
+                                                    {balanceVisible
+                                                        ? formatCurrency(wallet.balanceUSD || 0)
+                                                        : "••••••"
+                                                    }
+                                                </div>
+                                                <div className="flex items-center text-sm">
                           <span className="text-gray-400 mr-2">
-                            {balanceVisible 
-                              ? `${wallet.balance || 0} ${wallet.network === "ethereum" ? "ETH" : "BNB"}` 
-                              : "••••••"
+                            {balanceVisible
+                                ? `${wallet.balance || 0} ${wallet.network === "ethereum" ? "ETH" : "BNB"}`
+                                : "••••••"
                             }
                           </span>
-                          <Badge className={`${wallet.changePercent24h >= 0 ? 'bg-green-900/20 text-green-500' : 'bg-red-900/20 text-red-500'} border-0 text-xs`}>
-                            {wallet.changePercent24h >= 0 
-                              ? <TrendingUp className="w-3 h-3 mr-1" /> 
-                              : <TrendingDown className="w-3 h-3 mr-1" />
-                            }
-                            {wallet.changePercent24h.toFixed(2)}%
-                          </Badge>
+                                                    <Badge
+                                                        className={`${wallet.changePercent24h >= 0 ? 'bg-green-900/20 text-green-500' : 'bg-red-900/20 text-red-500'} border-0 text-xs`}>
+                                                        {wallet.changePercent24h >= 0
+                                                            ? <TrendingUp className="w-3 h-3 mr-1"/>
+                                                            : <TrendingDown className="w-3 h-3 mr-1"/>
+                                                        }
+                                                        {wallet.changePercent24h.toFixed(2)}%
+                                                    </Badge>
+                                                </div>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                ))
+                            ) : (
+                                <div
+                                    className="col-span-full py-10 flex flex-col items-center justify-center bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg text-center">
+                                    <WalletIcon className="h-12 w-12 text-[#a99fec] opacity-50 mb-4"/>
+                                    <h3 className="text-lg font-medium text-white mb-2">No wallets yet</h3>
+                                    <p className="text-gray-400 max-w-md mb-6">
+                                        Add your first wallet to start managing your crypto assets
+                                    </p>
+                                    <Button
+                                        onClick={() => setShowCreateModal(true)}
+                                        className="bg-[#a99fec] text-[#222222] hover:bg-[#9888db]"
+                                    >
+                                        <Plus className="w-4 h-4 mr-2"/>
+                                        Create New Wallet
+                                    </Button>
+                                </div>
+                            )}
                         </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))
-              ) : (
-                <div className="col-span-full py-10 flex flex-col items-center justify-center bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg text-center">
-                  <WalletIcon className="h-12 w-12 text-[#a99fec] opacity-50 mb-4" />
-                  <h3 className="text-lg font-medium text-white mb-2">No wallets yet</h3>
-                  <p className="text-gray-400 max-w-md mb-6">
-                    Add your first wallet to start managing your crypto assets
-                  </p>
-                  <Button 
-                    onClick={() => setShowCreateModal(true)}
-                    className="bg-[#a99fec] text-[#222222] hover:bg-[#9888db]"
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    Create New Wallet
-                  </Button>
-                </div>
-              )}
+                    </div>
+                </main>
+
+
+                {/* Success Modal for Wallet Creation */}
+                {showSuccessModal && newlyCreatedWallet && (
+                    <Dialog open={showSuccessModal} onOpenChange={setShowSuccessModal}>
+                        <DialogContent className="bg-[#2a2a2a] border-[#3a3a3a] text-white max-w-md">
+                            <DialogHeader>
+                                <DialogTitle className="text-white">Wallet Created Successfully!</DialogTitle>
+                                <DialogDescription className="text-gray-400">
+                                    Your new wallet has been created and added to your account. Please save your private
+                                    key and mnemonic phrase securely.
+                                </DialogDescription>
+                            </DialogHeader>
+                            <div className="space-y-4 py-4">
+                                <div>
+                                    <Label className="text-white">Wallet Address</Label>
+                                    <div className="mt-1 p-3 bg-[#333333] rounded-md flex justify-between items-center">
+                                        <code
+                                            className="text-sm text-[#a99fec] break-all">{newlyCreatedWallet.address}</code>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            onClick={() => {
+                                                copyToClipboard(newlyCreatedWallet.address);
+                                                toast.show({
+                                                    title: "Address copied",
+                                                    description: "Wallet address copied to clipboard",
+                                                });
+                                            }}
+                                            className="text-gray-400 hover:text-[#a99fec]"
+                                        >
+                                            <Copy size={16}/>
+                                        </Button>
+                                    </div>
+                                </div>
+                                <div>
+                                    <Label className="text-white flex items-center">
+                                        <Shield className="w-4 h-4 mr-1 text-[#a99fec]"/> Private Key (Keep Secret!)
+                                    </Label>
+                                    <div className="mt-1 p-3 bg-[#333333] rounded-md flex justify-between items-center">
+                                        <code
+                                            className="text-sm text-[#a99fec] break-all">{newlyCreatedWallet.privateKey}</code>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            onClick={() => {
+                                                copyToClipboard(newlyCreatedWallet.privateKey);
+                                                toast.show({
+                                                    title: "Private key copied",
+                                                    description: "Private key copied to clipboard",
+                                                });
+                                            }}
+                                            className="text-gray-400 hover:text-[#a99fec]"
+                                        >
+                                            <Copy size={16}/>
+                                        </Button>
+                                    </div>
+                                </div>
+                                {newlyCreatedWallet.mnemonic && (
+                                    <div>
+                                        <Label className="text-white flex items-center">
+                                            <Shield className="w-4 h-4 mr-1 text-[#a99fec]"/> Mnemonic Phrase (Keep
+                                            Secret!)
+                                        </Label>
+                                        <div
+                                            className="mt-1 p-3 bg-[#333333] rounded-md flex justify-between items-center">
+                                            <code
+                                                className="text-sm text-[#a99fec] break-all">{newlyCreatedWallet.mnemonic}</code>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                onClick={() => {
+                                                    copyToClipboard(newlyCreatedWallet.mnemonic || "");
+                                                    toast.show({
+                                                        title: "Mnemonic copied",
+                                                        description: "Mnemonic phrase copied to clipboard",
+                                                    });
+                                                }}
+                                                className="text-gray-400 hover:text-[#a99fec]"
+                                            >
+                                                <Copy size={16}/>
+                                            </Button>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                            <DialogFooter>
+                                <Button
+                                    onClick={() => setShowSuccessModal(false)}
+                                    className="bg-[#a99fec] text-[#222222] hover:bg-[#9888db] w-full"
+                                >
+                                    I've Saved My Details
+                                </Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
+                )}
+
+                {/* Create Wallet Modal */}
+                <Dialog open={showCreateModal} onOpenChange={setShowCreateModal}>
+                    <DialogContent className="bg-[#2a2a2a] border-[#3a3a3a] text-white">
+                        <DialogHeader>
+                            <DialogTitle className="text-white">Create New Wallet</DialogTitle>
+                            <DialogDescription className="text-gray-400">
+                                Create a new wallet to securely store your crypto assets.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <form onSubmit={handleCreateWallet}>
+                            <div className="grid gap-4 py-4">
+                                <div className="grid gap-2">
+                                    <Label htmlFor="new-wallet-name" className="text-white">Wallet Name</Label>
+                                    <Input
+                                        id="new-wallet-name"
+                                        placeholder="My New Wallet"
+                                        value={createWalletForm.name}
+                                        onChange={(e) => setCreateWalletForm({
+                                            ...createWalletForm,
+                                            name: e.target.value
+                                        })}
+                                        className="bg-[#333333] border-[#444444] text-white"
+                                    />
+                                </div>
+                                <div className="grid gap-2">
+                                    <Label htmlFor="new-wallet-network" className="text-white">Network</Label>
+                                    <Select
+                                        value={createWalletForm.network}
+                                        onValueChange={(value) => setCreateWalletForm({
+                                            ...createWalletForm,
+                                            network: value as "ethereum" | "bnb"
+                                        })}
+                                    >
+                                        <SelectTrigger className="bg-[#333333] border-[#444444] text-white">
+                                            <SelectValue placeholder="Select network"/>
+                                        </SelectTrigger>
+                                        <SelectContent className="bg-[#333333] border-[#444444] text-white">
+                                            <SelectItem value="ethereum">Ethereum</SelectItem>
+                                            <SelectItem value="bnb">BNB Chain</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="grid gap-2">
+                                    <Label htmlFor="new-wallet-passphrase" className="text-white">Encryption
+                                        Passphrase</Label>
+                                    <Input
+                                        id="new-wallet-passphrase"
+                                        type="password"
+                                        placeholder="Secure passphrase"
+                                        value={createWalletForm.passphrase}
+                                        onChange={(e) => setCreateWalletForm({
+                                            ...createWalletForm,
+                                            passphrase: e.target.value
+                                        })}
+                                        className="bg-[#333333] border-[#444444] text-white"
+                                    />
+                                </div>
+                            </div>
+                            <DialogFooter>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() => setShowCreateModal(false)}
+                                >
+                                    Cancel
+                                </Button>
+                                <Button
+                                    type="submit"
+                                    disabled={isCreatingWallet}
+                                    className="bg-[#a99fec] text-[#222222] hover:bg-[#9888db]"
+                                >
+                                    {isCreatingWallet ? "Creating..." : "Create Wallet"}
+                                </Button>
+                            </DialogFooter>
+                        </form>
+                    </DialogContent>
+                </Dialog>
             </div>
-          </div>
-        </main>
-      </div>
-    </RouteGuard>
-  );
+        </RouteGuard>
+    );
 }
