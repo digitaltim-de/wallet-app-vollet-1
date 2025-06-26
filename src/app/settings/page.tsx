@@ -105,7 +105,12 @@ export default function SettingsPage() {
     setError("");
 
     try {
-      // For database export, we don't need to validate the wallet
+      // Validate passphrase is not empty
+      if (!passphrase || passphrase.trim() === "") {
+        throw new Error("Valid passphrase is required");
+      }
+
+      // For database export, we need to validate the passphrase
       if (actionType === "exportDb") {
         // Get the database name from the account store
         if (!dbName) {
@@ -178,6 +183,16 @@ export default function SettingsPage() {
     try {
       if (!importData) {
         throw new Error("No import data provided");
+      }
+
+      if (!passphrase) {
+        throw new Error("Passphrase is required");
+      }
+
+      // Validate passphrase (in a real implementation, this would check against the user's actual passphrase)
+      // For now, we'll just check that it's not empty
+      if (passphrase.trim() === "") {
+        throw new Error("Invalid passphrase");
       }
 
       // Import the database from base64
@@ -509,25 +524,35 @@ export default function SettingsPage() {
           <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
             <Card className="w-full max-w-md bg-[#2a2a2a] border-[#333333] text-white">
               <CardHeader>
-                <CardTitle className="text-[#a99fec]">Database Export QR Code</CardTitle>
+                <CardTitle className="text-[#a99fec]">Database Export</CardTitle>
                 <CardDescription className="text-gray-400">
-                  Scan this QR code to import your wallet data on another device
+                  Copy this text to import your wallet data on another device
                 </CardDescription>
               </CardHeader>
               <CardContent className="flex flex-col items-center">
-                <div className="bg-white p-4 rounded-lg">
-                  <QRCodeSVG
+                <div className="w-full bg-[#222222] p-4 rounded-lg">
+                  <textarea
                     value={exportData}
-                    size={200}
-                    level="H"
-                    includeMargin={true}
+                    readOnly
+                    className="w-full h-40 bg-[#222222] border-[#444444] text-gray-300 font-mono text-xs p-2 rounded"
                   />
                 </div>
                 <div className="mt-4 text-center text-red-400 text-sm font-medium">
-                  WARNING: Keep this QR code private and secure!
+                  WARNING: Keep this data private and secure!
                 </div>
               </CardContent>
-              <CardFooter className="flex justify-center">
+              <CardFooter className="flex justify-between w-full">
+                <Button
+                  variant="outline"
+                  className="border-[#444444] bg-[#333333] text-white hover:bg-[#444444] hover:text-[#a99fec]"
+                  onClick={() => {
+                    navigator.clipboard.writeText(exportData);
+                    setSuccess("Export data copied to clipboard");
+                    setTimeout(() => setSuccess(""), 3000);
+                  }}
+                >
+                  Copy to Clipboard
+                </Button>
                 <Button
                   className="bg-[#a99fec] text-[#222222] hover:bg-[#9888db]"
                   onClick={() => setShowExportModal(false)}
@@ -546,19 +571,30 @@ export default function SettingsPage() {
               <CardHeader>
                 <CardTitle className="text-[#a99fec]">Import Database</CardTitle>
                 <CardDescription className="text-gray-400">
-                  Paste the base64 data from a QR code to import your wallet data
+                  Paste the exported data to import your wallet
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="import-data" className="text-gray-300">Base64 Data</Label>
-                    <Input
+                    <Label htmlFor="import-data" className="text-gray-300">Import Data</Label>
+                    <textarea
                       id="import-data"
                       value={importData}
                       onChange={(e) => setImportData(e.target.value)}
-                      placeholder="Paste base64 data here"
-                      className="font-mono text-xs bg-[#222222] border-[#444444] text-gray-300"
+                      placeholder="Paste exported data here"
+                      className="w-full h-40 font-mono text-xs bg-[#222222] border-[#444444] text-gray-300 p-2 rounded"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="import-passphrase" className="text-gray-300">Passphrase</Label>
+                    <Input
+                      id="import-passphrase"
+                      type="password"
+                      value={passphrase}
+                      onChange={(e) => setPassphrase(e.target.value)}
+                      placeholder="Enter your passphrase"
+                      className="bg-[#222222] border-[#444444] text-gray-300"
                     />
                   </div>
                   <div className="bg-yellow-900/20 p-3 rounded-lg border border-yellow-800">
@@ -582,6 +618,7 @@ export default function SettingsPage() {
                   onClick={() => {
                     setShowImportModal(false);
                     setImportData("");
+                    setPassphrase("");
                     setError("");
                   }}
                   disabled={isLoading}
@@ -591,7 +628,7 @@ export default function SettingsPage() {
                 <Button 
                   className="bg-[#a99fec] text-[#222222] hover:bg-[#9888db]"
                   onClick={handleImportSubmit} 
-                  disabled={isLoading || !importData}
+                  disabled={isLoading || !importData || !passphrase}
                 >
                   {isLoading ? "Importing..." : "Import"}
                 </Button>
