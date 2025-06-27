@@ -10,11 +10,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Wallet, Key, Eye, EyeOff, AlertCircle, CheckCircle2, Shield, Upload } from "lucide-react";
 import { ImportDBDialog } from "@/components/import-db-dialog";
 import { useAccountStore } from "@/store/account";
-import { useToast } from "@/components/ui/use-toast";
+import { toast } from "sonner";
 
 export default function LoginOrCreatePage() {
   const router = useRouter();
-  const { toast } = useToast();
   const { unlocked, login, createAccount } = useAccountStore();
 
   // Form state
@@ -70,18 +69,16 @@ export default function LoginOrCreatePage() {
           router.push("/dashboard");
           break;
         case "not-found":
-          toast({
-            title: "Account not found",
+          toast("Account not found", {
             description: "No account exists with this passphrase. Would you like to create one?",
-            variant: "destructive"
+            style: { backgroundColor: "#f44336", color: "white" }
           });
           setActiveTab("create");
           break;
         case "wrong-pass":
-          toast({
-            title: "Authentication failed",
+          toast("Authentication failed", {
             description: "Wrong passphrase. Please try again.",
-            variant: "destructive"
+            style: { backgroundColor: "#f44336", color: "white" }
           });
           break;
       }
@@ -118,18 +115,15 @@ export default function LoginOrCreatePage() {
 
       switch (result) {
         case "created":
-          toast({
-            title: "Account created",
-            description: "Your account has been created successfully.",
-            variant: "default"
+          toast("Account created", {
+            description: "Your account has been created successfully."
           });
           router.push("/dashboard");
           break;
         case "exists":
-          toast({
-            title: "Account already exists",
+          toast("Account already exists", {
             description: "An account with this passphrase already exists.",
-            variant: "destructive"
+            style: { backgroundColor: "#f44336", color: "white" }
           });
           setActiveTab("login");
           break;

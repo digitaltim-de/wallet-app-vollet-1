@@ -18,7 +18,7 @@ import {
 import {Input} from "@/components/ui/input";
 import {Label} from "@/components/ui/label";
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select";
-import {useToast} from "@/components/ui/use-toast";
+import { toast } from "sonner";
 import {RouteGuard} from "@/components/route-guard";
 import {CryptoWebApi} from "@/lib/cryptowebapi";
 import {CryptoWebApiClient} from 'cryptowebapi-connector-js';
@@ -98,7 +98,6 @@ interface TransactionData {
 export default function DashboardPage() {
     const router = useRouter();
     const {lock, db, dbName} = useAccountStore();
-    const {toast} = useToast();
 
     const [wallets, setWallets] = useState<WalletType[]>([]);
     const [selectedWallet, setSelectedWallet] = useState<WalletType | null>(null);
@@ -197,7 +196,6 @@ export default function DashboardPage() {
             return;
         }
 
-        alert('test');
         const balanceNum = Number.parseFloat(newWalletForm.balance);
         const balanceUSDNum = Number.parseFloat(newWalletForm.balanceUSD);
 
@@ -283,10 +281,9 @@ export default function DashboardPage() {
             }
         } catch (error) {
             console.error("Error fetching wallet transactions:", error);
-            toast({
-                title: "Error",
+            toast("Error", {
                 description: "Failed to fetch wallet transactions",
-                variant: "destructive",
+                style: { backgroundColor: "#f44336", color: "white" }
             });
         } finally {
             setIsLoadingTransactions(false);
@@ -318,10 +315,9 @@ export default function DashboardPage() {
             }
         } catch (error) {
             console.error("Error fetching wallet balance:", error);
-            toast({
-                title: "Error",
+            toast("Error", {
                 description: "Failed to fetch wallet balance",
-                variant: "destructive",
+                style: { backgroundColor: "#f44336", color: "white" }
             });
         } finally {
             setIsLoadingBalance(false);
@@ -371,10 +367,9 @@ export default function DashboardPage() {
             // Validate that the passphrase matches the login passphrase
             const derivedDbName = await deriveDbName(createWalletForm.passphrase);
             if (derivedDbName !== dbName) {
-                toast({
-                    title: "Passphrase Error",
+                toast("Passphrase Error", {
                     description: "The passphrase must be the same as your login passphrase for security reasons.",
-                    variant: "destructive",
+                    style: { backgroundColor: "#f44336", color: "white" }
                 });
                 setIsCreatingWallet(false);
                 return;
@@ -599,9 +594,8 @@ export default function DashboardPage() {
                                                                         onClick={(e) => {
                                                                             e.stopPropagation();
                                                                             copyToClipboard(wallet.address);
-                                                                            toast({
-                                                                                title: "Address copied",
-                                                                                description: "Wallet address copied to clipboard",
+                                                                            toast("Address copied", {
+                                                                                description: "Wallet address copied to clipboard"
                                                                             });
                                                                         }}
                                                                     >
@@ -731,9 +725,8 @@ export default function DashboardPage() {
                                                         className="ml-1 text-gray-400 hover:text-[#a99fec]"
                                                         onClick={() => {
                                                             copyToClipboard(selectedWallet.address);
-                                                            toast({
-                                                                title: "Address copied",
-                                                                description: "Wallet address copied to clipboard",
+                                                            toast("Address copied", {
+                                                                description: "Wallet address copied to clipboard"
                                                             });
                                                         }}
                                                     >
@@ -1110,9 +1103,8 @@ export default function DashboardPage() {
                                             size="icon"
                                             onClick={() => {
                                                 copyToClipboard(newlyCreatedWallet.address);
-                                                toast({
-                                                    title: "Address copied",
-                                                    description: "Wallet address copied to clipboard",
+                                                toast("Address copied", {
+                                                    description: "Wallet address copied to clipboard"
                                                 });
                                             }}
                                             className="text-gray-400 hover:text-[#a99fec]"
@@ -1133,9 +1125,8 @@ export default function DashboardPage() {
                                             size="icon"
                                             onClick={() => {
                                                 copyToClipboard(newlyCreatedWallet.privateKey);
-                                                toast({
-                                                    title: "Private key copied",
-                                                    description: "Private key copied to clipboard",
+                                                toast("Private key copied", {
+                                                    description: "Private key copied to clipboard"
                                                 });
                                             }}
                                             className="text-gray-400 hover:text-[#a99fec]"
@@ -1159,9 +1150,8 @@ export default function DashboardPage() {
                                                 size="icon"
                                                 onClick={() => {
                                                     copyToClipboard(newlyCreatedWallet.mnemonic || "");
-                                                    toast({
-                                                        title: "Mnemonic copied",
-                                                        description: "Mnemonic phrase copied to clipboard",
+                                                    toast("Mnemonic copied", {
+                                                        description: "Mnemonic phrase copied to clipboard"
                                                     });
                                                 }}
                                                 className="text-gray-400 hover:text-[#a99fec]"
