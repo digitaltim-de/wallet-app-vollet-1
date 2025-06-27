@@ -25,6 +25,7 @@ import {CryptoWebApiClient} from 'cryptowebapi-connector-js';
 import {useAccountStore} from "@/store/account";
 import {getAllWallets, saveWallet, Wallet as WalletType} from "@/lib/accountDb";
 import {encryptPrivateKey} from "@/lib/crypto";
+import {deriveDbName} from "@/lib/passphrase";
 
 // Initialize API clients
 const apiClient = new CryptoWebApi(process.env.NEXT_PUBLIC_CRYPTOWEBAPI_KEY || "");
@@ -96,7 +97,7 @@ interface TransactionData {
 
 export default function DashboardPage() {
     const router = useRouter();
-    const {lock, db} = useAccountStore();
+    const {lock, db, dbName} = useAccountStore();
     const {toast} = useToast();
 
     const [wallets, setWallets] = useState<WalletType[]>([]);
@@ -360,13 +361,25 @@ export default function DashboardPage() {
     const handleCreateWallet = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        if (!createWalletForm.name || !createWalletForm.network || !createWalletForm.passphrase || !db) {
+        if (!createWalletForm.name || !createWalletForm.network || !createWalletForm.passphrase || !db || !dbName) {
             return;
         }
 
         setIsCreatingWallet(true);
 
         try {
+            // Validate that the passphrase matches the login passphrase
+            const derivedDbName = await deriveDbName(createWalletForm.passphrase);
+            if (derivedDbName !== dbName) {
+                toast({
+                    title: "Passphrase Error",
+                    description: "The passphrase must be the same as your login passphrase for security reasons.",
+                    variant: "destructive",
+                });
+                setIsCreatingWallet(false);
+                return;
+            }
+
             // Create wallet using CryptoWebApiClient
             const newWallet = await cryptoWebApiClient.createWallet({
                 network: createWalletForm.network
@@ -1219,7 +1232,7 @@ export default function DashboardPage() {
                                     <Input
                                         id="new-wallet-passphrase"
                                         type="password"
-                                        placeholder="Secure passphrase"
+                                        placeholder="Use your login passphrase"
                                         value={createWalletForm.passphrase}
                                         onChange={(e) => setCreateWalletForm({
                                             ...createWalletForm,
@@ -1227,6 +1240,9 @@ export default function DashboardPage() {
                                         })}
                                         className="bg-[#333333] border-[#444444] text-white"
                                     />
+                                    <p className="text-xs text-gray-400 mt-1">
+                                        For security reasons, you must use the same passphrase as your account login.
+                                    </p>
                                 </div>
                             </div>
                             <DialogFooter>
