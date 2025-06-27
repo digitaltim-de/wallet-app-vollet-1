@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -25,39 +26,39 @@ export default function SetupPage() {
   // Handle wallet creation
   const handleCreateWallet = async () => {
     setError("");
-    
+
     // Validate passphrase
     if (!passphrase) {
       setError("Passphrase is required");
       return;
     }
-    
+
     if (passphrase !== confirmPassphrase) {
       setError("Passphrases do not match");
       return;
     }
-    
+
     if (passphrase.length < 8) {
       setError("Passphrase must be at least 8 characters");
       return;
     }
-    
+
     try {
       setIsLoading(true);
-      
+
       // Create a new wallet using the API
       const network = "ethereum";
       const wallet = await cryptowebapi.createWallet(network);
-      
+
       // Encrypt the private key
       const encryptedData = await encryptPrivateKey(wallet.privateKey, passphrase);
-      
+
       // Extract the components from the encrypted data
       const encryptedBytes = new Uint8Array(atob(encryptedData).split("").map(c => c.charCodeAt(0)));
       const salt = encryptedBytes.slice(0, 16);
       const iv = encryptedBytes.slice(16, 28);
       const ciphertext = encryptedBytes.slice(28);
-      
+
       // Save the wallet to IndexedDB
       await saveWallet({
         address: wallet.address,
@@ -66,10 +67,10 @@ export default function SetupPage() {
         iv,
         ciphertext
       });
-      
+
       // Unlock the wallet
       await unlock(passphrase, wallet.address);
-      
+
       // Redirect to dashboard
       router.push("/dashboard");
     } catch (err) {
@@ -83,49 +84,49 @@ export default function SetupPage() {
   // Handle wallet import
   const handleImportWallet = async () => {
     setError("");
-    
+
     // Validate inputs
     if (!passphrase) {
       setError("Passphrase is required");
       return;
     }
-    
+
     if (passphrase !== confirmPassphrase) {
       setError("Passphrases do not match");
       return;
     }
-    
+
     if (!privateKey) {
       setError("Private key is required");
       return;
     }
-    
+
     try {
       setIsLoading(true);
-      
+
       // Validate private key format
       if (!privateKey.match(/^(0x)?[0-9a-fA-F]{64}$/)) {
         setError("Invalid private key format");
         return;
       }
-      
+
       // Remove 0x prefix if present
       const pkHex = privateKey.startsWith("0x") ? privateKey.slice(2) : privateKey;
-      
+
       // Derive the address from the private key
       const network = "ethereum";
       const wallet = new ethers.Wallet(pkHex);
       const address = wallet.address;
-      
+
       // Encrypt the private key
       const encryptedData = await encryptPrivateKey(pkHex, passphrase);
-      
+
       // Extract the components from the encrypted data
       const encryptedBytes = new Uint8Array(atob(encryptedData).split("").map(c => c.charCodeAt(0)));
       const salt = encryptedBytes.slice(0, 16);
       const iv = encryptedBytes.slice(16, 28);
       const ciphertext = encryptedBytes.slice(28);
-      
+
       // Save the wallet to IndexedDB
       await saveWallet({
         address,
@@ -134,10 +135,10 @@ export default function SetupPage() {
         iv,
         ciphertext
       });
-      
+
       // Unlock the wallet
       await unlock(passphrase, address);
-      
+
       // Redirect to dashboard
       router.push("/dashboard");
     } catch (err) {
@@ -151,8 +152,14 @@ export default function SetupPage() {
   return (
     <div className="min-h-screen bg-white p-8 flex flex-col justify-center">
       <div className="text-center mb-8">
-        <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-8 shadow-sm">
-          <Wallet className="w-12 h-12 text-gray-700" />
+        <div className="mx-auto mb-8">
+          <Image 
+            src="/wollet-logo.png" 
+            alt="Wollet Logo" 
+            width={160} 
+            height={40} 
+            className="h-auto"
+          />
         </div>
         <h1 className="text-4xl font-bold text-gray-900 mb-6">
           {isCreating ? "Create New Wallet" : "Import Existing Wallet"}

@@ -2,6 +2,7 @@
 
 import {useEffect, useState} from "react";
 import {useRouter} from "next/navigation";
+import Image from "next/image";
 import {Copy, Eye, EyeOff, LogOut, Plus, Settings, Shield, TrendingDown, TrendingUp, WalletIcon, Upload} from "lucide-react";
 import { ImportDBDialog } from "@/components/import-db-dialog";
 import {Card, CardContent} from "@/components/ui/card";
@@ -59,7 +60,7 @@ interface Wallet {
     id: string;
     name: string;
     address: string;
-    network: "ethereum" | "bnb";
+    network: "ethereum" | "bnb" | "tron" | "bitcoin";
     balance: number;
     balanceUSD: number;
     change24h: number;
@@ -102,13 +103,20 @@ export default function DashboardPage() {
     const [wallets, setWallets] = useState<WalletType[]>([]);
     const [selectedWallet, setSelectedWallet] = useState<WalletType | null>(null);
     const [showCreateModal, setShowCreateModal] = useState(false);
+    const [showEarnModal, setShowEarnModal] = useState(false);
     const [showSuccessModal, setShowSuccessModal] = useState(false);
     const [balanceVisible, setBalanceVisible] = useState(true);
+    const [supportedCoins, setSupportedCoins] = useState<any[]>([]);
+    const [selectedCoin, setSelectedCoin] = useState<any>(null);
+    const [isLoadingCoins, setIsLoadingCoins] = useState(false);
+    const [existingWallets, setExistingWallets] = useState<WalletType[]>([]);
+    const [useExistingWallet, setUseExistingWallet] = useState(false);
+    const [selectedExistingWallet, setSelectedExistingWallet] = useState<string>("");
     const [newlyCreatedWallet, setNewlyCreatedWallet] = useState<{
         address: string;
         privateKey: string;
         mnemonic?: string;
-        network: "ethereum" | "bnb";
+        network: "ethereum" | "bnb" | "tron" | "bitcoin";
         name: string;
     } | null>(null);
 
@@ -144,7 +152,7 @@ export default function DashboardPage() {
     const [newWalletForm, setNewWalletForm] = useState({
         name: "",
         address: "",
-        network: "ethereum" as "ethereum" | "bnb",
+        network: "ethereum" as "ethereum" | "bnb" | "tron" | "bitcoin",
         balance: "",
         balanceUSD: "",
     });
@@ -152,7 +160,7 @@ export default function DashboardPage() {
     // Form state for creating wallets
     const [createWalletForm, setCreateWalletForm] = useState({
         name: "",
-        network: "ethereum" as "ethereum" | "bnb",
+        network: "ethereum" as "ethereum" | "bnb" | "tron" | "bitcoin",
         passphrase: "",
     });
 
@@ -353,6 +361,179 @@ export default function DashboardPage() {
         await fetchTransactions(selectedWallet, transactionTab, 1, perPage);
     };
 
+    // Handle EARN button click
+    const handleEarnClick = async () => {
+        setIsLoadingCoins(true);
+        setShowEarnModal(true);
+
+        try {
+            // Fetch supported coins
+            const coins = await cryptoWebApiClient.getSupportedCoins(
+                {
+                    "network": "ethereum", // Fetch all networks
+                }
+            );
+
+            // Check if the response is in the new format (direct array) or old format (with success and data properties)
+            if (Array.isArray(coins)) {
+                // New format: direct array of CoinData
+                setSupportedCoins(coins);
+            } else if (coins.success && coins.data) {
+                // Old format: {success, data} structure
+                setSupportedCoins(coins.data);
+            } else {
+                toast("Error", {
+                    description: "Failed to fetch supported coins",
+                    style: { backgroundColor: "#f44336", color: "white" }
+                });
+            }
+        } catch (error) {
+            console.error("Error fetching supported coins:", error);
+            toast("Error", {
+                description: "Failed to fetch supported coins",
+                style: { backgroundColor: "#f44336", color: "white" }
+            });
+        } finally {
+            setIsLoadingCoins(false);
+        }
+    };
+
+    // Handle coin selection
+    const handleCoinSelect = (coin: any) => {
+        setSelectedCoin(coin);
+
+        // Get network from provider if network property is not available
+        const network = coin.network || coin.provider?.toLowerCase() || "ethereum";
+
+        // Check if there are existing wallets for this network
+        const networkWallets = wallets.filter(wallet => wallet.network === network);
+        setExistingWallets(networkWallets);
+
+        // Reset wallet selection
+        setUseExistingWallet(networkWallets.length > 0);
+        if (networkWallets.length > 0) {
+            setSelectedExistingWallet(networkWallets[0].id);
+        }
+    };
+
+    // Handle wallet creation for selected coin
+    const handleCreateWalletForCoin = async (e: React.FormEvent) => {
+        e.preventDefault();
+
+        if (!selectedCoin || !createWalletForm.passphrase || !db || !dbName) {
+            return;
+        }
+
+        setIsCreatingWallet(true);
+
+        try {
+            // Validate that the passphrase matches the login passphrase
+            const derivedDbName = await deriveDbName(createWalletForm.passphrase);
+            if (derivedDbName !== dbName) {
+                toast("Passphrase Error", {
+                    description: "The passphrase must be the same as your login passphrase for security reasons.",
+                    style: { backgroundColor: "#f44336", color: "white" }
+                });
+                setIsCreatingWallet(false);
+                return;
+            }
+
+            // Get network from provider if network property is not available
+            const network = selectedCoin.network || selectedCoin.provider?.toLowerCase() || "ethereum";
+
+            // Create wallet using CryptoWebApiClient
+            const newWallet = await cryptoWebApiClient.createWallet({
+                network: network
+            });
+
+            if (!newWallet.key) {
+                throw new Error('Private key is missing in the wallet creation response');
+            }
+
+            // Encrypt private key and mnemonic with passphrase
+            const encryptedPrivateKey = await encryptPrivateKey(newWallet.key, createWalletForm.passphrase);
+
+            // Check if mnemonic exists in the response
+            let encryptedMnemonic = undefined;
+            if (newWallet.mnemonic) {
+                encryptedMnemonic = await encryptPrivateKey(newWallet.mnemonic, createWalletForm.passphrase);
+            }
+
+            // Create wallet name based on network and coin
+            const walletName = `${network} | ${selectedCoin.shortName}`;
+
+            // Create wallet object
+            const walletData: WalletType = {
+                id: Date.now().toString(),
+                name: walletName,
+                address: newWallet.address,
+                network: network,
+                balance: 0,
+                balanceUSD: 0,
+                change24h: 0,
+                changePercent24h: 0,
+                tokens: [],
+                transactions: [],
+                encryptedPrivateKey,
+                encryptedMnemonic,
+            };
+
+            // Save to IndexedDB
+            await saveWallet(db, walletData);
+
+            // Update state
+            setWallets([...wallets, walletData]);
+
+            // Store the newly created wallet data for the success screen
+            setNewlyCreatedWallet({
+                address: newWallet.address,
+                privateKey: newWallet.key,
+                mnemonic: newWallet.mnemonic,
+                network: network,
+                name: walletName
+            });
+
+            // Show success modal
+            setShowEarnModal(false);
+            setShowSuccessModal(true);
+
+            // Reset form and selection
+            setSelectedCoin(null);
+            setUseExistingWallet(false);
+            setSelectedExistingWallet("");
+
+        } catch (error) {
+            console.error("Error creating wallet for coin:", error);
+            toast("Error", {
+                description: `Error creating wallet: ${error instanceof Error ? error.message : 'Unknown error'}`,
+                style: { backgroundColor: "#f44336", color: "white" }
+            });
+        } finally {
+            setIsCreatingWallet(false);
+        }
+    };
+
+    // Handle using existing wallet for selected coin
+    const handleUseExistingWallet = () => {
+        if (!selectedCoin || !selectedExistingWallet) {
+            return;
+        }
+
+        // Find the selected wallet
+        const wallet = wallets.find(w => w.id === selectedExistingWallet);
+        if (wallet) {
+            // Select this wallet to view its details
+            handleWalletSelect(wallet);
+            // Close the EARN modal
+            setShowEarnModal(false);
+
+            toast("Success", {
+                description: `Using existing ${wallet.name} wallet for ${selectedCoin.shortName}`,
+                style: { backgroundColor: "#4caf50", color: "white" }
+            });
+        }
+    };
+
     // Handle wallet creation
     const handleCreateWallet = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -453,8 +634,13 @@ export default function DashboardPage() {
                 <header className="border-b border-[#2a2a2a] p-4">
                     <div className="container mx-auto flex justify-between items-center">
                         <div className="flex items-center space-x-2">
-                            <WalletIcon className="h-5 w-5 text-[#a99fec]"/>
-                            <span className="font-bold text-lg text-[#a99fec]">Wollet APP</span>
+                            <Image 
+                                src="/wollet-logo.png" 
+                                alt="Wollet Logo" 
+                                width={100} 
+                                height={25} 
+                                className="h-auto"
+                            />
                         </div>
                         <div className="flex items-center space-x-4">
                             <Button
@@ -521,6 +707,13 @@ export default function DashboardPage() {
                                             <Plus className="w-4 h-4 mr-2"/>
                                             Add Wallet
                                         </Button>
+                                        <Button
+                                            onClick={() => handleEarnClick()}
+                                            className="bg-[#a99fec] text-[#222222] hover:bg-[#9888db]"
+                                        >
+                                            <TrendingUp className="w-4 h-4 mr-2"/>
+                                            EARN
+                                        </Button>
                                     </div>
                                 </div>
                             </div>
@@ -564,7 +757,7 @@ export default function DashboardPage() {
                                                                               fill="#393939"/>
                                                                     </svg>
                                                                 </div>
-                                                            ) : (
+                                                            ) : wallet.network === "bnb" ? (
                                                                 <div
                                                                     className="w-8 h-8 rounded-full bg-yellow-600/20 flex items-center justify-center mr-3">
                                                                     <svg className="w-5 h-5 text-yellow-500"
@@ -583,6 +776,45 @@ export default function DashboardPage() {
                                                                             d="M1250,1733.76l483.16-483.44,282.49,282.5L1250,2500,482.48,1732.5,764.48,1450"
                                                                             fill="#F0B90B"/>
                                                                     </svg>
+                                                                </div>
+                                                            ) : wallet.network === "tron" ? (
+                                                                <div
+                                                                    className="w-8 h-8 rounded-full bg-red-600/20 flex items-center justify-center mr-3">
+                                                                    <svg className="w-5 h-5 text-red-500"
+                                                                         viewBox="0 0 100 100" fill="none"
+                                                                         xmlns="http://www.w3.org/2000/svg">
+                                                                        <path
+                                                                            d="M50 0L10 30L20 40L50 20L80 40L90 30L50 0Z"
+                                                                            fill="#FF0013"/>
+                                                                        <path
+                                                                            d="M10 50L20 60L50 40L80 60L90 50L50 20L10 50Z"
+                                                                            fill="#FF0013"/>
+                                                                        <path
+                                                                            d="M10 70L20 80L50 60L80 80L90 70L50 40L10 70Z"
+                                                                            fill="#FF0013"/>
+                                                                        <path
+                                                                            d="M50 80L80 100L90 90L50 60L10 90L20 100L50 80Z"
+                                                                            fill="#FF0013"/>
+                                                                    </svg>
+                                                                </div>
+                                                            ) : wallet.network === "bitcoin" ? (
+                                                                <div
+                                                                    className="w-8 h-8 rounded-full bg-orange-600/20 flex items-center justify-center mr-3">
+                                                                    <svg className="w-5 h-5 text-orange-500"
+                                                                         viewBox="0 0 32 32" fill="none"
+                                                                         xmlns="http://www.w3.org/2000/svg">
+                                                                        <path
+                                                                            d="M16 0C7.163 0 0 7.163 0 16s7.163 16 16 16 16-7.163 16-16S24.837 0 16 0z"
+                                                                            fill="#F7931A"/>
+                                                                        <path
+                                                                            d="M22.5 14.25c.375 2.5-1.5 3.875-4.125 4.75l.875 3.5-2 .5-.75-3.375c-.5.125-1.125.25-1.625.375l.75 3.375-2 .5-.875-3.5c-.5.125-1 .25-1.5.375l-2.75-1 1-2.25s1.5.5 1.5.375c.875-.25.875-1 .875-1.25l-1.5-6c-.125-.375-.5-.875-1.25-.625.25-.125-1.5-.375-1.5-.375l-.5-1.75 2.875.75c.5-.125.875-.25 1.375-.375l-.875-3.5 2-.5.875 3.5c.5-.125 1.125-.25 1.625-.375l-.875-3.5 2-.5.875 3.5c2.375-.375 4.125-.125 4.875 1.875.625 1.625 0 2.625-.875 3.25 1.25.25 2.125 1.125 2.25 2.875zM19 16.75c-.875-2.25-4.25-.875-5.25-.625l1 4c1-.25 4.375-1.25 4.25-3.375zm-1-5.75c-.75-2-3.375-.875-4.25-.625l.875 3.625c.875-.25 3.5-1 3.375-3z"
+                                                                            fill="#FFF"/>
+                                                                    </svg>
+                                                                </div>
+                                                            ) : (
+                                                                <div
+                                                                    className="w-8 h-8 rounded-full bg-gray-600/20 flex items-center justify-center mr-3">
+                                                                    <WalletIcon className="w-5 h-5 text-gray-500" />
                                                                 </div>
                                                             )}
                                                             <div>
@@ -605,7 +837,10 @@ export default function DashboardPage() {
                                                             </div>
                                                         </div>
                                                         <Badge className="bg-[#2a2a2a] text-[#a99fec] border border-[#3a3a3a]">
-                                                            {wallet.network === "ethereum" ? "Ethereum" : "BNB Chain"}
+                                                            {wallet.network === "ethereum" ? "Ethereum" : 
+                                                             wallet.network === "bnb" ? "BNB Chain" : 
+                                                             wallet.network === "tron" ? "Tron" : 
+                                                             wallet.network === "bitcoin" ? "Bitcoin" : wallet.network}
                                                         </Badge>
                                                     </div>
 
@@ -619,7 +854,12 @@ export default function DashboardPage() {
                                                         <div className="flex items-center text-sm">
                                   <span className="text-gray-400 mr-2">
                                     {balanceVisible
-                                        ? `${wallet.balance || 0} ${wallet.network === "ethereum" ? "ETH" : "BNB"}`
+                                        ? `${wallet.balance || 0} ${
+                                            wallet.network === "ethereum" ? "ETH" : 
+                                            wallet.network === "bnb" ? "BNB" : 
+                                            wallet.network === "tron" ? "TRX" : 
+                                            wallet.network === "bitcoin" ? "BTC" : ""
+                                          }`
                                         : "••••••"
                                     }
                                   </span>
@@ -693,7 +933,7 @@ export default function DashboardPage() {
                                                           fill="#393939"/>
                                                 </svg>
                                             </div>
-                                        ) : (
+                                        ) : selectedWallet.network === "bnb" ? (
                                             <div className="w-12 h-12 rounded-full bg-yellow-600/20 flex items-center justify-center mr-4">
                                                 <svg className="w-7 h-7 text-yellow-500"
                                                      viewBox="0 0 2500 2500" fill="none"
@@ -712,12 +952,51 @@ export default function DashboardPage() {
                                                         fill="#F0B90B"/>
                                                 </svg>
                                             </div>
+                                        ) : selectedWallet.network === "tron" ? (
+                                            <div className="w-12 h-12 rounded-full bg-red-600/20 flex items-center justify-center mr-4">
+                                                <svg className="w-7 h-7 text-red-500"
+                                                     viewBox="0 0 100 100" fill="none"
+                                                     xmlns="http://www.w3.org/2000/svg">
+                                                    <path
+                                                        d="M50 0L10 30L20 40L50 20L80 40L90 30L50 0Z"
+                                                        fill="#FF0013"/>
+                                                    <path
+                                                        d="M10 50L20 60L50 40L80 60L90 50L50 20L10 50Z"
+                                                        fill="#FF0013"/>
+                                                    <path
+                                                        d="M10 70L20 80L50 60L80 80L90 70L50 40L10 70Z"
+                                                        fill="#FF0013"/>
+                                                    <path
+                                                        d="M50 80L80 100L90 90L50 60L10 90L20 100L50 80Z"
+                                                        fill="#FF0013"/>
+                                                </svg>
+                                            </div>
+                                        ) : selectedWallet.network === "bitcoin" ? (
+                                            <div className="w-12 h-12 rounded-full bg-orange-600/20 flex items-center justify-center mr-4">
+                                                <svg className="w-7 h-7 text-orange-500"
+                                                     viewBox="0 0 32 32" fill="none"
+                                                     xmlns="http://www.w3.org/2000/svg">
+                                                    <path
+                                                        d="M16 0C7.163 0 0 7.163 0 16s7.163 16 16 16 16-7.163 16-16S24.837 0 16 0z"
+                                                        fill="#F7931A"/>
+                                                    <path
+                                                        d="M22.5 14.25c.375 2.5-1.5 3.875-4.125 4.75l.875 3.5-2 .5-.75-3.375c-.5.125-1.125.25-1.625.375l.75 3.375-2 .5-.875-3.5c-.5.125-1 .25-1.5.375l-2.75-1 1-2.25s1.5.5 1.5.375c.875-.25.875-1 .875-1.25l-1.5-6c-.125-.375-.5-.875-1.25-.625.25-.125-1.5-.375-1.5-.375l-.5-1.75 2.875.75c.5-.125.875-.25 1.375-.375l-.875-3.5 2-.5.875 3.5c.5-.125 1.125-.25 1.625-.375l-.875-3.5 2-.5.875 3.5c2.375-.375 4.125-.125 4.875 1.875.625 1.625 0 2.625-.875 3.25 1.25.25 2.125 1.125 2.25 2.875zM19 16.75c-.875-2.25-4.25-.875-5.25-.625l1 4c1-.25 4.375-1.25 4.25-3.375zm-1-5.75c-.75-2-3.375-.875-4.25-.625l.875 3.625c.875-.25 3.5-1 3.375-3z"
+                                                        fill="#FFF"/>
+                                                </svg>
+                                            </div>
+                                        ) : (
+                                            <div className="w-12 h-12 rounded-full bg-gray-600/20 flex items-center justify-center mr-4">
+                                                <WalletIcon className="w-7 h-7 text-gray-500" />
+                                            </div>
                                         )}
                                         <div>
                                             <h1 className="text-2xl font-bold text-white">{selectedWallet.name}</h1>
                                             <div className="flex items-center text-gray-400">
                                                 <Badge className="mr-2 bg-[#2a2a2a] text-[#a99fec] border border-[#3a3a3a]">
-                                                    {selectedWallet.network === "ethereum" ? "Ethereum" : "BNB Chain"}
+                                                    {selectedWallet.network === "ethereum" ? "Ethereum" : 
+                                                     selectedWallet.network === "bnb" ? "BNB Chain" : 
+                                                     selectedWallet.network === "tron" ? "Tron" : 
+                                                     selectedWallet.network === "bitcoin" ? "Bitcoin" : selectedWallet.network}
                                                 </Badge>
                                                 <span className="text-sm flex items-center">
                                                     {selectedWallet.address}
@@ -755,7 +1034,12 @@ export default function DashboardPage() {
                                                     <div className="flex items-center text-sm">
                                                         <span className="text-gray-400 mr-2">
                                                             {balanceVisible && walletBalances.length > 0
-                                                                ? `${parseFloat(walletBalances.find(b => !b.isToken)?.balance || "0")} ${selectedWallet.network === "ethereum" ? "ETH" : "BNB"}`
+                                                                ? `${parseFloat(walletBalances.find(b => !b.isToken)?.balance || "0")} ${
+                                                                    selectedWallet.network === "ethereum" ? "ETH" : 
+                                                                    selectedWallet.network === "bnb" ? "BNB" : 
+                                                                    selectedWallet.network === "tron" ? "TRX" : 
+                                                                    selectedWallet.network === "bitcoin" ? "BTC" : ""
+                                                                  }`
                                                                 : "••••••"
                                                             }
                                                         </span>
@@ -906,22 +1190,27 @@ export default function DashboardPage() {
                                             ) : walletTransactions.length > 0 ? (
                                                 <div className="divide-y divide-[#3a3a3a]">
                                                     {walletTransactions.map((tx, index) => {
-                                                        const isReceived = tx.toAddress.toLowerCase() === selectedWallet?.address.toLowerCase();
-                                                        const date = new Date(tx.timestamp);
+                                                        const isReceived = tx.toAddress?.toLowerCase() === selectedWallet?.address.toLowerCase();
+                                                        const date = tx.timestamp ? new Date(tx.timestamp) : new Date();
 
                                                         return (
                                                             <div key={index} className="grid grid-cols-12 py-4 text-sm">
                                                                 <div className="col-span-2 text-gray-400">
-                                                                    {formatAddress(tx.hash)}
+                                                                    {tx.hash ? formatAddress(tx.hash) : 'N/A'}
                                                                 </div>
                                                                 <div className="col-span-2 text-white">
-                                                                    {balanceVisible ? parseFloat(tx.valueDecimal).toFixed(6) : "••••••"} {tx.tokenSymbol || (selectedWallet?.network === "ethereum" ? "ETH" : "BNB")}
+                                                                    {balanceVisible ? (tx.valueDecimal ? parseFloat(tx.valueDecimal).toFixed(6) : '0.000000') : "••••••"} {tx.tokenSymbol || (
+                                                                        selectedWallet?.network === "ethereum" ? "ETH" : 
+                                                                        selectedWallet?.network === "bnb" ? "BNB" : 
+                                                                        selectedWallet?.network === "tron" ? "TRX" : 
+                                                                        selectedWallet?.network === "bitcoin" ? "BTC" : ""
+                                                                    )}
                                                                 </div>
                                                                 <div className="col-span-3 text-gray-400">
-                                                                    {formatAddress(tx.fromAddress)}
+                                                                    {tx.fromAddress ? formatAddress(tx.fromAddress) : 'N/A'}
                                                                 </div>
                                                                 <div className="col-span-3 text-gray-400">
-                                                                    {formatAddress(tx.toAddress)}
+                                                                    {tx.toAddress ? formatAddress(tx.toAddress) : 'N/A'}
                                                                 </div>
                                                                 <div className="col-span-2 text-right">
                                                                     <Badge className={`
@@ -1174,6 +1463,192 @@ export default function DashboardPage() {
                     </Dialog>
                 )}
 
+                {/* EARN Modal */}
+                <Dialog open={showEarnModal} onOpenChange={setShowEarnModal}>
+                    <DialogContent className="bg-[#2a2a2a] border-[#3a3a3a] text-white max-w-4xl">
+                        <DialogHeader>
+                            <DialogTitle className="text-white">Select a Coin to EARN</DialogTitle>
+                            <DialogDescription className="text-gray-400">
+                                Choose a coin from the list below to create or use a wallet for earning.
+                            </DialogDescription>
+                        </DialogHeader>
+
+                        {isLoadingCoins ? (
+                            <div className="py-8 text-center text-gray-400">
+                                Loading supported coins...
+                            </div>
+                        ) : selectedCoin ? (
+                            <div className="py-4">
+                                <div className="mb-4 flex items-center">
+                                    <Button 
+                                        variant="ghost" 
+                                        onClick={() => setSelectedCoin(null)}
+                                        className="text-gray-400 hover:text-[#a99fec] -ml-2 mb-2"
+                                    >
+                                        ← Back to Coins
+                                    </Button>
+                                </div>
+
+                                <div className="bg-[#333333] p-4 rounded-md mb-6">
+                                    <h3 className="text-lg font-medium text-white mb-2">Selected Coin</h3>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <p className="text-sm text-gray-400">Name</p>
+                                            <p className="text-white">{selectedCoin.name || selectedCoin.coin} ({selectedCoin.shortName})</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-sm text-gray-400">Network</p>
+                                            <p className="text-white capitalize">{selectedCoin.provider || selectedCoin.network || "ethereum"}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-sm text-gray-400">Type</p>
+                                            <p className="text-white">{selectedCoin.type}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-sm text-gray-400">Contract Address</p>
+                                            <p className="text-white">{selectedCoin.contractAddress ? (selectedCoin.contractAddress.substring(0, 6) + '...' + selectedCoin.contractAddress.substring(selectedCoin.contractAddress.length - 4)) : 'N/A'}</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {existingWallets.length > 0 ? (
+                                    <div className="mb-6">
+                                        <h3 className="text-lg font-medium text-white mb-4">Existing Wallets on {selectedCoin.provider || selectedCoin.network || "ethereum"}</h3>
+                                        <div className="space-y-4">
+                                            <div className="flex items-center space-x-2">
+                                                <input 
+                                                    type="checkbox" 
+                                                    id="use-existing" 
+                                                    checked={useExistingWallet}
+                                                    onChange={(e) => setUseExistingWallet(e.target.checked)}
+                                                    className="rounded bg-[#333333] border-[#444444]"
+                                                />
+                                                <Label htmlFor="use-existing" className="text-white">Use an existing wallet</Label>
+                                            </div>
+
+                                            {useExistingWallet && (
+                                                <div className="pl-6">
+                                                    <Label htmlFor="existing-wallet" className="text-white mb-2 block">Select Wallet</Label>
+                                                    <Select
+                                                        value={selectedExistingWallet}
+                                                        onValueChange={setSelectedExistingWallet}
+                                                    >
+                                                        <SelectTrigger className="bg-[#333333] border-[#444444] text-white">
+                                                            <SelectValue placeholder="Select wallet"/>
+                                                        </SelectTrigger>
+                                                        <SelectContent className="bg-[#333333] border-[#444444] text-white">
+                                                            {existingWallets.map(wallet => (
+                                                                <SelectItem key={wallet.id} value={wallet.id}>
+                                                                    {wallet.name} ({formatAddress(wallet.address)})
+                                                                </SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
+
+                                                    <Button
+                                                        onClick={handleUseExistingWallet}
+                                                        className="mt-4 bg-[#a99fec] text-[#222222] hover:bg-[#9888db]"
+                                                    >
+                                                        Use Selected Wallet
+                                                    </Button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                ) : null}
+
+                                <div className={existingWallets.length > 0 && useExistingWallet ? "opacity-50" : ""}>
+                                    <h3 className="text-lg font-medium text-white mb-4">
+                                        {existingWallets.length > 0 ? "Create New Wallet" : "Create Wallet for " + selectedCoin.shortName}
+                                    </h3>
+
+                                    <form onSubmit={handleCreateWalletForCoin}>
+                                        <div className="grid gap-4 py-4">
+                                            <div className="grid gap-2">
+                                                <Label htmlFor="new-wallet-passphrase" className="text-white">Encryption Passphrase</Label>
+                                                <Input
+                                                    id="new-wallet-passphrase"
+                                                    type="password"
+                                                    placeholder="Use your login passphrase"
+                                                    value={createWalletForm.passphrase}
+                                                    onChange={(e) => setCreateWalletForm({
+                                                        ...createWalletForm,
+                                                        passphrase: e.target.value
+                                                    })}
+                                                    className="bg-[#333333] border-[#444444] text-white"
+                                                    disabled={existingWallets.length > 0 && useExistingWallet}
+                                                />
+                                                <p className="text-xs text-gray-400 mt-1">
+                                                    For security reasons, you must use the same passphrase as your account login.
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <Button
+                                            type="submit"
+                                            disabled={isCreatingWallet || (existingWallets.length > 0 && useExistingWallet)}
+                                            className="bg-[#a99fec] text-[#222222] hover:bg-[#9888db]"
+                                        >
+                                            {isCreatingWallet ? "Creating..." : "Create New Wallet"}
+                                        </Button>
+                                    </form>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="py-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[60vh] overflow-y-auto">
+                                    {supportedCoins.map((coin, index) => (
+                                        <Card 
+                                            key={index}
+                                            className="bg-[#333333] border-[#444444] hover:border-[#a99fec] border transition-colors overflow-hidden cursor-pointer"
+                                            onClick={() => handleCoinSelect(coin)}
+                                        >
+                                            <CardContent className="p-4">
+                                                <div className="flex justify-between items-start mb-3">
+                                                    <div>
+                                                        <div className="font-semibold text-white">{coin.name || coin.coin}</div>
+                                                        <div className="text-sm text-gray-400">{coin.shortName}</div>
+                                                    </div>
+                                                    <Badge className={`
+                                                        ${coin.type === 'STABLECOIN' ? 'bg-blue-900/20 text-blue-500' : 
+                                                          coin.type === 'COIN' ? 'bg-green-900/20 text-green-500' : 
+                                                          'bg-purple-900/20 text-purple-500'} 
+                                                        border-0
+                                                    `}>
+                                                        {coin.type}
+                                                    </Badge>
+                                                </div>
+                                                <div className="text-sm text-gray-400">
+                                                    <div className="flex justify-between mb-1">
+                                                        <span>Provider:</span>
+                                                        <span className="text-white capitalize">{coin.provider || coin.network || "ethereum"}</span>
+                                                    </div>
+                                                    <div className="flex justify-between">
+                                                        <span>Tag:</span>
+                                                        <span className="text-white">{coin.tag || "N/A"}</span>
+                                                    </div>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        <DialogFooter>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => {
+                                    setShowEarnModal(false);
+                                    setSelectedCoin(null);
+                                }}
+                            >
+                                Cancel
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+
                 {/* Create Wallet Modal */}
                 <Dialog open={showCreateModal} onOpenChange={setShowCreateModal}>
                     <DialogContent className="bg-[#2a2a2a] border-[#3a3a3a] text-white">
@@ -1213,6 +1688,8 @@ export default function DashboardPage() {
                                         <SelectContent className="bg-[#333333] border-[#444444] text-white">
                                             <SelectItem value="ethereum">Ethereum</SelectItem>
                                             <SelectItem value="bnb">BNB Chain</SelectItem>
+                                            <SelectItem value="tron">Tron</SelectItem>
+                                            <SelectItem value="bitcoin">Bitcoin</SelectItem>
                                         </SelectContent>
                                     </Select>
                                 </div>

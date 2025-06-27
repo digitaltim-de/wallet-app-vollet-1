@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -155,10 +156,15 @@ export default function LoginOrCreatePage() {
           <div className="absolute top-0 right-0">
             <ImportDBDialog showLabel={true} />
           </div>
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-[#2a2a2a] mb-4">
-            <Wallet className="h-8 w-8 text-[#a99fec]" />
+          <div className="mb-4">
+            <Image 
+              src="/wollet-logo.png" 
+              alt="Wollet Logo" 
+              width={140} 
+              height={35} 
+              className="h-auto"
+            />
           </div>
-          <h1 className="text-2xl font-bold text-white">Wollet APP</h1>
           <p className="text-gray-400">Secure, simple crypto management</p>
         </div>
 
