@@ -7,6 +7,7 @@
  */
 
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
+import { Network } from './cryptowebapi';
 
 /**
  * Database schema definition
@@ -19,7 +20,7 @@ export interface MySchema extends DBSchema {
       id: string;
       name: string;
       address: string;
-      network: 'ethereum' | 'bnb';
+      network: Network;
       balance: number;
       balanceUSD: number;
       change24h: number;

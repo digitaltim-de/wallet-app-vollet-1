@@ -8,6 +8,7 @@
  */
 
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
+import { Network } from './cryptowebapi';
 
 // Define the database schema
 interface WalletDB extends DBSchema {
@@ -15,7 +16,7 @@ interface WalletDB extends DBSchema {
     key: string; // address as the key
     value: {
       address: string;
-      network: 'ethereum' | 'bnb';
+      network: Network;
       salt: Uint8Array;
       iv: Uint8Array;
       ciphertext: Uint8Array;
@@ -72,7 +73,7 @@ export function initDB(): Promise<IDBPDatabase<WalletDB>> {
  */
 export async function saveWallet(wallet: {
   address: string;
-  network: 'ethereum' | 'bnb';
+  network: Network;
   salt: Uint8Array;
   iv: Uint8Array;
   ciphertext: Uint8Array;
@@ -94,7 +95,7 @@ export async function saveWallet(wallet: {
  */
 export async function getWallet(address: string): Promise<{
   address: string;
-  network: 'ethereum' | 'bnb';
+  network: Network;
   salt: Uint8Array;
   iv: Uint8Array;
   ciphertext: Uint8Array;
@@ -111,7 +112,7 @@ export async function getWallet(address: string): Promise<{
  */
 export async function getAllWallets(): Promise<{
   address: string;
-  network: 'ethereum' | 'bnb';
+  network: Network;
   salt: Uint8Array;
   iv: Uint8Array;
   ciphertext: Uint8Array;
@@ -127,9 +128,9 @@ export async function getAllWallets(): Promise<{
  * @param network - The blockchain network
  * @returns A Promise resolving to an array of wallets for the specified network
  */
-export async function getWalletsByNetwork(network: 'ethereum' | 'bnb'): Promise<{
+export async function getWalletsByNetwork(network: Network): Promise<{
   address: string;
-  network: 'ethereum' | 'bnb';
+  network: Network;
   salt: Uint8Array;
   iv: Uint8Array;
   ciphertext: Uint8Array;

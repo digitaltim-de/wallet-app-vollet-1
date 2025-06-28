@@ -9,13 +9,14 @@
 
 import { IDBPDatabase } from 'idb';
 import { MySchema } from './dbFactory';
+import { Network } from './cryptowebapi';
 
 // Wallet type definition
 export interface Wallet {
   id: string;
   name: string;
   address: string;
-  network: 'ethereum' | 'bnb';
+  network: Network;
   balance: number;
   balanceUSD: number;
   change24h: number;

@@ -251,23 +251,32 @@ export default function DashboardPage() {
         params.fromAddress = wallet.address;
       }
 
-      const transactions = await cryptoWebApiClient.listTransactions(params);
-
-      if (transactions.success && transactions.data) {
-        setWalletTransactions(transactions.data);
-
-        // Store total count if available in the response
-        // The API might return total count in different ways, check both possibilities
-        if (transactions.total !== undefined) {
-          setTotalTransactions(transactions.total);
-        } else if (transactions.meta && transactions.meta.total !== undefined) {
-          setTotalTransactions(transactions.meta.total);
-        } else {
-          // If no total count is available, use the length of the data array
-          // This is not ideal but provides a fallback
-          console.warn('No total count available in API response, using data length as fallback');
-          setTotalTransactions(Math.max(totalTransactions, (page - 1) * perPage + transactions.data.length));
-        }
+      const transactions = await cryptoWebApiClient.listTransactions(params);        if (transactions.success && transactions.data) {
+          // Map API response to local interface
+          const mappedTransactions: TransactionData[] = transactions.data.map((tx: any) => ({
+            hash: tx.hash,
+            blockNumber: tx.blockNumber || '',
+            timestamp: tx.timestamp,
+            fromAddress: tx.fromAddress,
+            toAddress: tx.toAddress,
+            valueDecimal: tx.valueDecimal,
+            feeDecimal: tx.feeDecimal,
+            status: tx.status || 'confirmed',
+            tokenSymbol: tx.tokenSymbol || 'ETH'
+          }));
+          setWalletTransactions(mappedTransactions);          // Store total count if available in the response
+          // The API might return total count in different ways, check both possibilities
+          const apiResponse = transactions as any;
+          if (apiResponse.total !== undefined) {
+            setTotalTransactions(apiResponse.total);
+          } else if (apiResponse.meta && apiResponse.meta.total !== undefined) {
+            setTotalTransactions(apiResponse.meta.total);
+          } else {
+            // If no total count is available, use the length of the data array
+            // This is not ideal but provides a fallback
+            console.warn('No total count available in API response, using data length as fallback');
+            setTotalTransactions(Math.max(totalTransactions, (page - 1) * perPage + transactions.data.length));
+          }
 
         // Update current page
         setCurrentPage(page);
@@ -368,9 +377,9 @@ export default function DashboardPage() {
       if (Array.isArray(coins)) {
         // New format: direct array of CoinData
         setSupportedCoins(coins);
-      } else if (coins.success && coins.data) {
+      } else if ((coins as any).success && (coins as any).data) {
         // Old format: {success, data} structure
-        setSupportedCoins(coins.data);
+        setSupportedCoins((coins as any).data);
       } else {
         toast("Error", {
           description: "Failed to fetch supported coins",
@@ -776,47 +785,58 @@ export default function DashboardPage() {
 
   return (
     <RouteGuard>
-      <div className="min-h-screen bg-[#222222] text-white">
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
         <Header 
           balanceVisible={balanceVisible} 
           setBalanceVisible={setBalanceVisible} 
           lock={lock} 
         />
 
-        <main className="container mx-auto p-4 md:p-6">
+        <main className="relative">
           {!selectedWallet ? (
-            <WalletList 
-              wallets={wallets}
-              totalBalance={totalBalance}
-              totalChangePercent={totalChangePercent}
-              balanceVisible={balanceVisible}
-              onWalletSelect={handleWalletSelect}
-              onCreateWalletClick={() => setShowCreateModal(true)}
-              onEarnClick={handleEarnClick}
-              formatCurrency={formatCurrency}
-            />
-          ) : (
-            <WalletDetails
-              wallet={selectedWallet}
-              balanceVisible={balanceVisible}
-              onBackClick={handleBackToList}
-              formatCurrency={formatCurrency}
-              walletBalances={walletBalances}
-              isLoadingBalance={isLoadingBalance}
-            >
-              <TransactionList 
-                transactions={walletTransactions}
-                walletAddress={selectedWallet.address}
-                isLoading={isLoadingTransactions}
-                transactionTab={transactionTab}
-                onTabChange={handleTabChange}
-                currentPage={currentPage}
-                totalTransactions={totalTransactions}
-                itemsPerPage={itemsPerPage}
-                onPageChange={handlePageChange}
-                onItemsPerPageChange={handleItemsPerPageChange}
+            <div className="container mx-auto px-4 py-6 max-w-md">
+              {/* Modern Mobile-First Layout */}
+              <WalletList 
+                wallets={wallets}
+                totalBalance={totalBalance}
+                totalChangePercent={totalChangePercent}
+                balanceVisible={balanceVisible}
+                onWalletSelect={handleWalletSelect}
+                onCreateWalletClick={() => setShowCreateModal(true)}
+                onEarnClick={handleEarnClick}
+                formatCurrency={formatCurrency}
               />
-            </WalletDetails>
+            </div>
+          ) : selectedWallet && selectedWallet.address ? (
+            <div className="container mx-auto px-4 py-6 max-w-md">
+              <WalletDetails
+                wallet={selectedWallet}
+                balanceVisible={balanceVisible}
+                onBackClick={handleBackToList}
+                formatCurrency={formatCurrency}
+                walletBalances={walletBalances}
+                isLoadingBalance={isLoadingBalance}
+              >
+                <TransactionList 
+                  transactions={walletTransactions}
+                  walletAddress={selectedWallet.address}
+                  isLoading={isLoadingTransactions}
+                  transactionTab={transactionTab}
+                  onTabChange={handleTabChange}
+                  currentPage={currentPage}
+                  totalTransactions={totalTransactions}
+                  itemsPerPage={itemsPerPage}
+                  onPageChange={handlePageChange}
+                  onItemsPerPageChange={handleItemsPerPageChange}
+                />
+              </WalletDetails>
+            </div>
+          ) : (
+            <div className="container mx-auto px-4 py-6 max-w-md">
+              <div className="text-center py-12">
+                <p className="text-white">Loading wallet...</p>
+              </div>
+            </div>
           )}
         </main>
 
