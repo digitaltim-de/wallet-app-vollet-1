@@ -156,8 +156,19 @@ export default function DashboardPage() {
     passphrase: "",
   });
 
+  // Form state for importing wallets
+  const [importWalletForm, setImportWalletForm] = useState({
+    name: "",
+    network: "ethereum" as "ethereum" | "bnb" | "tron" | "bitcoin",
+    mnemonic: "",
+    passphrase: "",
+  });
+
   // Loading state for wallet creation
   const [isCreatingWallet, setIsCreatingWallet] = useState(false);
+
+  // Loading state for wallet import
+  const [isImportingWallet, setIsImportingWallet] = useState(false);
 
   // Calculations
   const totalBalance = wallets.reduce((sum, wallet) => sum + wallet.balanceUSD, 0);
@@ -606,6 +617,128 @@ export default function DashboardPage() {
     }
   };
 
+  // Handle wallet import from mnemonic
+  const handleImportWallet = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!importWalletForm.network || !importWalletForm.mnemonic || !importWalletForm.passphrase || !db || !dbName) {
+      return;
+    }
+
+    setIsImportingWallet(true);
+
+    try {
+      // Validate that the passphrase matches the login passphrase
+      const derivedDbName = await deriveDbName(importWalletForm.passphrase);
+      if (derivedDbName !== dbName) {
+        toast("Passphrase Error", {
+          description: "The passphrase must be the same as your login passphrase for security reasons.",
+          style: { backgroundColor: "#f44336", color: "white" }
+        });
+        setIsImportingWallet(false);
+        return;
+      }
+
+      // Make API call to get wallet address from mnemonic
+      const response = await fetch('https://api.cryptowebapi.com/api/wallet/address-from-mnemonic', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'key': process.env.NEXT_PUBLIC_CRYPTOWEBAPI_KEY || 'cc608a05-d748-4178-9b3c-e9f94375f806',
+        },
+        body: JSON.stringify({
+          mnemonic: importWalletForm.mnemonic,
+          network: importWalletForm.network
+        })
+      });
+
+      console.log('Response:', response);
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('API Response data:', data);
+
+      if (!data.success || !data.data || !data.data.address) {
+        throw new Error('Failed to get wallet address from mnemonic');
+      }
+
+      // Use the user-provided name or create a default name based on network
+      let walletName = importWalletForm.name;
+
+      // If no name was provided, generate a default one
+      if (!walletName) {
+        const networkNames = {
+          ethereum: 'Ethereum',
+          bnb: 'BNB Chain',
+          tron: 'Tron',
+          bitcoin: 'Bitcoin'
+        };
+
+        walletName = `${networkNames[importWalletForm.network]} Imported Wallet`;
+      }
+
+      // Encrypt mnemonic with passphrase
+      const encryptedMnemonic = await encryptPrivateKey(importWalletForm.mnemonic, importWalletForm.passphrase);
+
+      // Create wallet object
+      const walletData: WalletType = {
+        id: Date.now().toString(),
+        name: walletName,
+        address: data.data.address,
+        network: importWalletForm.network,
+        balance: 0,
+        balanceUSD: 0,
+        change24h: 0,
+        changePercent24h: 0,
+        tokens: [],
+        transactions: [],
+        encryptedMnemonic,
+      };
+
+      // Save to IndexedDB
+      await saveWallet(db, walletData);
+
+      // Update state
+      setWallets([...wallets, walletData]);
+
+      // Store the newly created wallet data for the success screen
+      setNewlyCreatedWallet({
+        address: data.data.address,
+        privateKey: data.data.privateKey,
+        mnemonic: importWalletForm.mnemonic,
+        network: importWalletForm.network,
+        name: walletName
+      });
+
+      // Show success modal instead of closing create modal
+      setShowCreateModal(false);
+      setShowSuccessModal(true);
+
+      // Reset form
+      setImportWalletForm({
+        name: "",
+        network: "ethereum",
+        mnemonic: "",
+        passphrase: "",
+      });
+
+      toast("Success", {
+        description: "Wallet imported successfully!",
+        style: { backgroundColor: "#4caf50", color: "white" }
+      });
+    } catch (error) {
+      console.error("Error importing wallet:", error);
+      toast("Error", {
+        description: `Error importing wallet: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        style: { backgroundColor: "#f44336", color: "white" }
+      });
+    } finally {
+      setIsImportingWallet(false);
+    }
+  };
+
   return (
     <RouteGuard>
       <div className="min-h-screen bg-[#222222] text-white">
@@ -657,9 +790,13 @@ export default function DashboardPage() {
           isOpen={showCreateModal}
           onClose={() => setShowCreateModal(false)}
           createWalletForm={createWalletForm}
+          importWalletForm={importWalletForm}
           setCreateWalletForm={setCreateWalletForm}
+          setImportWalletForm={setImportWalletForm}
           onCreateWallet={handleCreateWallet}
+          onImportWallet={handleImportWallet}
           isCreatingWallet={isCreatingWallet}
+          isImportingWallet={isImportingWallet}
         />
 
         <EarnModal 
