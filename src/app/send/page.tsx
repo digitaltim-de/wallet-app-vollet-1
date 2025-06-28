@@ -10,11 +10,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ArrowLeft, Send, AlertCircle, CheckCircle2 } from "lucide-react";
 import { CryptoWebApi } from "@/lib/cryptowebapi";
-import { getWallet } from "@/lib/db";
 import { decryptPrivateKey, secureErase } from "@/lib/crypto";
 import { createWalletClient, http, parseEther, formatEther } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { mainnet, bsc } from "viem/chains";
+import { useAccountStore } from "@/store/account";
+import { getAllWallets, Wallet as WalletType } from "@/lib/accountDb";
 
 // Initialize API client
 const apiClient = new CryptoWebApi(process.env.NEXT_PUBLIC_CRYPTOWEBAPI_KEY || "");
@@ -28,12 +29,18 @@ export default function SendPage() {
     },
   });
 
+  const { unlocked, db } = useAccountStore();
+
   // Form state
   const [recipient, setRecipient] = useState("");
   const [amount, setAmount] = useState("");
   const [gasPrice, setGasPrice] = useState("");
   const [passphrase, setPassphrase] = useState("");
   const [selectedToken, setSelectedToken] = useState("native");
+  
+  // Wallet state
+  const [selectedWallet, setSelectedWallet] = useState<WalletType | null>(null);
+  const [wallets, setWallets] = useState<WalletType[]>([]);
   
   // UI state
   const [isLoading, setIsLoading] = useState(false);
@@ -43,10 +50,29 @@ export default function SendPage() {
   const [showPassphraseModal, setShowPassphraseModal] = useState(false);
   const [estimatedFee, setEstimatedFee] = useState("");
   const [txHash, setTxHash] = useState("");
+
+  // Load wallets when database is available
+  useEffect(() => {
+    const loadWallets = async () => {
+      if (db && unlocked) {
+        try {
+          const allWallets = await getAllWallets(db);
+          setWallets(allWallets);
+          if (allWallets.length > 0) {
+            setSelectedWallet(allWallets[0]); // Select first wallet by default
+          }
+        } catch (error) {
+          console.error("Failed to load wallets:", error);
+        }
+      }
+    };
+
+    loadWallets();
+  }, [db, unlocked]);
   
-  // Get wallet address and network from session
-  const address = session?.user?.address as string;
-  const network = session?.user?.network as "ethereum" | "bnb";
+  // Get wallet address and network from selected wallet
+  const address = selectedWallet?.address || "";
+  const network = selectedWallet?.network as "ethereum" | "bnb" || "ethereum";
   
   // Fetch wallet balance
   const { data: balanceData, isLoading: balanceLoading } = useQuery({
@@ -130,26 +156,23 @@ export default function SendPage() {
     setError("");
     
     try {
-      // Get wallet from IndexedDB
-      const wallet = await getWallet(address);
-      
-      if (!wallet) {
-        throw new Error("Wallet not found");
+      if (!selectedWallet) {
+        throw new Error("No wallet selected");
+      }
+
+      if (!selectedWallet.encryptedPrivateKey) {
+        throw new Error("Private key not found in wallet");
       }
       
       // Decrypt private key with passphrase
-      const privateKeyHex = await decryptPrivateKey({
-        salt: wallet.salt,
-        iv: wallet.iv,
-        ciphertext: wallet.ciphertext
-      }, passphrase);
+      const privateKeyHex = await decryptPrivateKey(selectedWallet.encryptedPrivateKey, passphrase);
       
       if (!privateKeyHex) {
         throw new Error("Failed to decrypt private key");
       }
       
       // Create wallet client
-      const account = privateKeyToAccount(`0x${privateKeyHex}`);
+      const account = privateKeyToAccount(`0x${privateKeyHex}` as `0x${string}`);
       const chain = getChainConfig();
       const client = createWalletClient({
         account,
@@ -163,7 +186,7 @@ export default function SendPage() {
       
       // Sign transaction
       const signedTx = await client.sendTransaction({
-        to: recipient,
+        to: recipient as `0x${string}`,
         value: amountWei,
         gasPrice: gasPriceWei
       });

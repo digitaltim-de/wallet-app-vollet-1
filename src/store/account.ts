@@ -59,7 +59,7 @@ export const useAccountStore = create(
           const db = await openAccountDB(dbName);
 
           // Verify we can access the meta store
-          const meta = await db.get('meta', 'singleton');
+          const meta = await db.get('meta', 'id');
           if (!meta) {
             db.close();
             set({ unlocked: false, db: undefined });
@@ -95,7 +95,7 @@ export const useAccountStore = create(
             const db = await openAccountDB(dbName);
 
             // Verify we can access the meta store
-            const meta = await db.get('meta', 'singleton');
+            const meta = await db.get('meta', 'id');
             if (!meta) {
               db.close();
               return 'wrong-pass';
@@ -153,10 +153,6 @@ export const useAccountStore = create(
     {
       name: 'account-storage', // unique name for the storage
       storage: createJSONStorage(() => sessionStorage), // use sessionStorage
-      partialize: (state) => ({ 
-        unlocked: state.unlocked,
-        dbName: state.dbName
-      }), // persist both unlocked state and dbName
     }
   )
 );

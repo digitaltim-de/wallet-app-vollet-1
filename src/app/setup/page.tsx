@@ -12,6 +12,7 @@ import { cryptowebapi } from "@/lib/cryptowebapi";
 import { encryptPrivateKey } from "@/lib/crypto";
 import { saveWallet } from "@/lib/db";
 import { useWalletStore } from "@/lib/store";
+import { privateKeyToAccount } from "viem/accounts";
 
 export default function SetupPage() {
   const router = useRouter();
@@ -115,8 +116,8 @@ export default function SetupPage() {
 
       // Derive the address from the private key
       const network = "ethereum";
-      const wallet = new ethers.Wallet(pkHex);
-      const address = wallet.address;
+      const account = privateKeyToAccount(`0x${pkHex}` as `0x${string}`);
+      const address = account.address;
 
       // Encrypt the private key
       const encryptedData = await encryptPrivateKey(pkHex, passphrase);
