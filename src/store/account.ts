@@ -81,35 +81,52 @@ export const useAccountStore = create(
         try {
           // Derive database name from passphrase
           const dbName = await deriveDbName(pass);
+          console.log('🔍 Login attempt - Derived DB name:', dbName);
 
           // Check if database exists
           const dbList = await indexedDB.databases();
+          console.log('📋 Available databases:', dbList.map(db => db.name));
           const dbExists = dbList.some(db => db.name === dbName);
+          console.log('✅ DB exists check:', dbExists);
 
           if (!dbExists) {
+            console.log('❌ Database not found');
             return 'not-found';
           }
 
           // Try to open the database
           try {
+            console.log('🔓 Attempting to open database:', dbName);
             const db = await openAccountDB(dbName);
+            console.log('✅ Database opened successfully');
 
             // Verify we can access the meta store
+            console.log('🔍 Checking meta store...');
             const meta = await db.get('meta', 'id');
+            console.log('📄 Meta data:', meta);
+            
             if (!meta) {
+              console.log('❌ No meta data found - wrong passphrase');
+              
+              // Let's also check what's actually in the meta store
+              console.log('🔍 Checking all meta store contents...');
+              const allMeta = await db.getAll('meta');
+              console.log('📋 All meta entries:', allMeta);
+              
               db.close();
               return 'wrong-pass';
             }
 
             // Set the state to unlocked with the database connection and dbName
+            console.log('🎉 Login successful');
             set({ unlocked: true, db, dbName });
             return 'ok';
           } catch (error) {
-            console.error('Error opening database:', error);
+            console.error('❌ Error opening database:', error);
             return 'wrong-pass';
           }
         } catch (error) {
-          console.error('Login error:', error);
+          console.error('❌ Login error:', error);
           return 'wrong-pass';
         }
       },
@@ -119,33 +136,42 @@ export const useAccountStore = create(
         try {
           // Derive database name from passphrase
           const dbName = await deriveDbName(pass);
+          console.log('🆕 Creating account - Derived DB name:', dbName);
 
           // Check if database already exists
           const dbList = await indexedDB.databases();
+          console.log('📋 Available databases:', dbList.map(db => db.name));
           const dbExists = dbList.some(db => db.name === dbName);
+          console.log('✅ DB exists check:', dbExists);
 
           if (dbExists) {
+            console.log('❌ Database already exists');
             return 'exists';
           }
 
           // Create and open the database
+          console.log('🔨 Creating new database:', dbName);
           const db = await openAccountDB(dbName);
+          console.log('✅ Database created successfully');
 
           // Initialize the meta store with creation timestamp
-          await db.put('meta', { id: 'singleton', createdAt: Date.now() });
+          console.log('📄 Initializing meta store...');
+          await db.put('meta', { id: 'id', createdAt: Date.now() });
+          console.log('✅ Meta store initialized');
 
           // Request persistent storage
           if (navigator.storage && navigator.storage.persist) {
             const isPersisted = await navigator.storage.persist();
-            console.log(`Persistent storage ${isPersisted ? 'granted' : 'denied'}`);
+            console.log(`💾 Persistent storage ${isPersisted ? 'granted' : 'denied'}`);
           }
 
           // Set the state to unlocked with the database connection and dbName
+          console.log('🎉 Account created successfully');
           set({ unlocked: true, db, dbName });
 
           return 'created';
         } catch (error) {
-          console.error('Create account error:', error);
+          console.error('❌ Create account error:', error);
           return 'exists'; // Default to exists on error to prevent data loss
         }
       }

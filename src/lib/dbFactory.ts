@@ -13,7 +13,7 @@ import { Network } from './cryptowebapi';
  * Database schema definition
  */
 export interface MySchema extends DBSchema {
-  meta: { key: 'id'; value: { id: 'singleton'; createdAt: number } };
+  meta: { key: 'id'; value: { id: 'id'; createdAt: number } };
   wallets: {
     key: string; // wallet id as the key
     value: {
@@ -60,24 +60,46 @@ export interface MySchema extends DBSchema {
  * @returns A Promise resolving to the database connection
  */
 export async function openAccountDB(name: string): Promise<IDBPDatabase<MySchema>> {
-  return openDB<MySchema>(name, 2, {
+  console.log('🔧 Opening database:', name);
+  
+  return openDB<MySchema>(name, 3, {
     upgrade(db, oldVersion, newVersion, transaction) {
+      console.log(`🔄 Database upgrade: ${oldVersion} -> ${newVersion}`);
+      
       // Create stores based on version
       if (oldVersion < 1) {
+        console.log('📦 Creating meta store...');
         // Create meta store (for version 1)
         db.createObjectStore('meta', { keyPath: 'id' });
       }
 
       if (oldVersion < 2) {
+        console.log('📦 Creating wallets store...');
         // Create wallets store (for version 2)
         const walletStore = db.createObjectStore('wallets', {
           keyPath: 'id'
         });
 
         // Create indexes
+        console.log('📇 Creating indexes...');
         walletStore.createIndex('by-network', 'network');
         walletStore.createIndex('by-created', 'createdAt');
       }
+
+      if (oldVersion < 3) {
+        console.log('📦 Database version 3 update (no schema changes)...');
+        // Version 3: No schema changes, just version bump for compatibility
+      }
+      
+      console.log('✅ Database upgrade completed');
+    },
+    
+    blocked() {
+      console.warn('⚠️ Database upgrade blocked by another connection');
+    },
+    
+    blocking() {
+      console.warn('⚠️ This connection is blocking a database upgrade');
     }
   });
 }
