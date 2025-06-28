@@ -46,33 +46,21 @@ export const WalletList = ({
       </div>
 
       {/* Action Buttons */}
-      <div className="grid grid-cols-4 gap-4 mb-8">
-        <button className="flex flex-col items-center p-4 bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 hover:bg-white/20 transition-all">
+      <div className="grid grid-cols-2 gap-4 mb-8">
+        <button
+            className="flex flex-col items-center p-4 bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 hover:bg-white/20 transition-all">
           <div className="w-12 h-12 bg-purple-500/20 rounded-full flex items-center justify-center mb-2">
-            <QrCode className="w-6 h-6 text-purple-400" />
+            <QrCode className="w-6 h-6 text-purple-400"/>
           </div>
           <span className="text-white text-sm font-medium">Receive</span>
         </button>
-        
-        <button className="flex flex-col items-center p-4 bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 hover:bg-white/20 transition-all">
+
+        <button
+            className="flex flex-col items-center p-4 bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 hover:bg-white/20 transition-all">
           <div className="w-12 h-12 bg-blue-500/20 rounded-full flex items-center justify-center mb-2">
-            <Send className="w-6 h-6 text-blue-400" />
+            <Send className="w-6 h-6 text-blue-400"/>
           </div>
           <span className="text-white text-sm font-medium">Send</span>
-        </button>
-        
-        <button className="flex flex-col items-center p-4 bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 hover:bg-white/20 transition-all">
-          <div className="w-12 h-12 bg-green-500/20 rounded-full flex items-center justify-center mb-2">
-            <ArrowUpDown className="w-6 h-6 text-green-400" />
-          </div>
-          <span className="text-white text-sm font-medium">Swap</span>
-        </button>
-        
-        <button className="flex flex-col items-center p-4 bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 hover:bg-white/20 transition-all">
-          <div className="w-12 h-12 bg-orange-500/20 rounded-full flex items-center justify-center mb-2">
-            <ShoppingCart className="w-6 h-6 text-orange-400" />
-          </div>
-          <span className="text-white text-sm font-medium">Buy</span>
         </button>
       </div>
 

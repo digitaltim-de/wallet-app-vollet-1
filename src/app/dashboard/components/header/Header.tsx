@@ -19,14 +19,14 @@ export const Header = ({ balanceVisible, setBalanceVisible, lock }: HeaderProps)
     <header className="bg-black/20 backdrop-blur-lg border-b border-white/10 sticky top-0 z-50">
       <div className="max-w-md mx-auto px-4 py-3">
         <div className="flex justify-between items-center">
-          <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-              <span className="text-white font-bold text-sm">W</span>
-            </div>
-            <div>
-              <h1 className="text-white font-semibold text-lg">@fatigue</h1>
-              <p className="text-gray-400 text-xs">Main</p>
-            </div>
+          <div className="flex items-center">
+            <Image
+                src="/wollet-logo.png"
+                alt="Wollet Logo"
+                width={28}
+                height={28}
+                className="h-auto w-auto"
+            />
           </div>
           <div className="flex items-center space-x-3">
             <Button

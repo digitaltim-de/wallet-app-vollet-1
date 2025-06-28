@@ -21,7 +21,6 @@
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "cryptowebapi-connector-js": "^1.2.0",
-    "steganography.js": "^1.0.3",
     "ethers": "^6.9.0",
     "geist": "^1.4.2",
     "html5-qrcode": "^2.3.8",
