@@ -17,9 +17,10 @@ interface WalletCardProps {
   };
   balanceVisible: boolean;
   onSelect: (wallet: any) => void;
+  onAddressClick?: (address: string, walletName: string, coinSymbol?: string) => void;
 }
 
-export const WalletCard = ({ wallet, balanceVisible, onSelect }: WalletCardProps) => {
+export const WalletCard = ({ wallet, balanceVisible, onSelect, onAddressClick }: WalletCardProps) => {
   // Format address for display
   const formatAddress = (address: string) => {
     return `${address.slice(0, 6)}...${address.slice(-4)}`;

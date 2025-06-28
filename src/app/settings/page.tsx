@@ -127,17 +127,6 @@ export default function SettingsPage() {
                 const exportedData = await exportDatabaseToBase64(dbName, passphrase);
                 setExportData(exportedData);
 
-                // If export type is image, embed the data in the image
-                if (exportType === "image") {
-                    try {
-                        const imageUrl = await embedDataInImage('/cryptowallet-backup.png', exportedData);
-                        setExportImageUrl(imageUrl);
-                    } catch (error) {
-                        console.error('Error embedding data in image:', error);
-                        throw new Error('Failed to create image backup. Please try again.');
-                    }
-                }
-
                 setShowPassphraseModal(false);
                 setShowExportModal(true);
                 return;
@@ -164,12 +153,18 @@ export default function SettingsPage() {
                 throw new Error("Wallet not found");
             }
 
+            // Combine salt, iv, and ciphertext into a base64 string
+            const combinedLength = wallet.salt.length + wallet.iv.length + wallet.ciphertext.length;
+            const combined = new Uint8Array(combinedLength);
+            combined.set(wallet.salt, 0);
+            combined.set(wallet.iv, wallet.salt.length);
+            combined.set(wallet.ciphertext, wallet.salt.length + wallet.iv.length);
+            
+            // Convert to base64
+            const encryptedBase64 = btoa(String.fromCharCode(...combined));
+
             // Decrypt private key with passphrase
-            const privateKeyHex = await decryptPrivateKey({
-                salt: wallet.salt,
-                iv: wallet.iv,
-                ciphertext: wallet.ciphertext
-            }, passphrase);
+            const privateKeyHex = await decryptPrivateKey(encryptedBase64, passphrase);
 
             if (!privateKeyHex) {
                 throw new Error("Incorrect passphrase");
@@ -183,7 +178,7 @@ export default function SettingsPage() {
                 await signOut({redirect: false});
 
                 // Redirect to login page
-                router.push("/login");
+                router.push("/login-or-create");
             }
         } catch (error: any) {
             console.error("Error:", error);
@@ -225,13 +220,44 @@ export default function SettingsPage() {
 
             // Redirect to login page after a short delay
             setTimeout(() => {
-                router.push("/login");
+                router.push("/login-or-create");
             }, 2000);
         } catch (error: any) {
             console.error("Import error:", error);
             setError(error.message || "An error occurred during import");
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    // Generate steganography image
+    const generateStegImage = async () => {
+        if (!exportData) return;
+
+        setIsLoading(true);
+        setError("");
+
+        try {
+            const imageUrl = await embedDataInImage('/cryptowallet-backup.png', exportData);
+            if (!imageUrl) {
+                throw new Error('Failed to generate image with embedded data');
+            }
+            setExportImageUrl(imageUrl);
+            console.log('Image with embedded data generated successfully');
+        } catch (error) {
+            console.error('Error embedding data in image:', error);
+            setError('Failed to create image backup. Please try again.');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // Handle export type change
+    const handleExportTypeChange = async (type: "text" | "image") => {
+        setExportType(type);
+
+        if (type === "image" && exportData && !exportImageUrl) {
+            await generateStegImage();
         }
     };
 
@@ -490,7 +516,7 @@ export default function SettingsPage() {
                                 <div className="w-full flex mb-4 border-b border-[#444444]">
                                     <button
                                         className={`flex-1 py-2 px-4 ${exportType === 'text' ? 'text-[#a99fec] border-b-2 border-[#a99fec]' : 'text-gray-400'}`}
-                                        onClick={() => setExportType('text')}
+                                        onClick={() => handleExportTypeChange('text')}
                                     >
                                         <span className="flex items-center justify-center">
                                             <Download className="w-4 h-4 mr-2" />
@@ -499,7 +525,7 @@ export default function SettingsPage() {
                                     </button>
                                     <button
                                         className={`flex-1 py-2 px-4 ${exportType === 'image' ? 'text-[#a99fec] border-b-2 border-[#a99fec]' : 'text-gray-400'}`}
-                                        onClick={() => setExportType('image')}
+                                        onClick={() => handleExportTypeChange('image')}
                                     >
                                         <span className="flex items-center justify-center">
                                             <Image className="w-4 h-4 mr-2" />
@@ -528,15 +554,27 @@ export default function SettingsPage() {
                                 {exportType === 'image' && (
                                     <>
                                         <div className="w-full bg-[#222222] p-4 rounded-lg flex justify-center">
-                                            {exportImageUrl ? (
-                                                <img 
-                                                    src={exportImageUrl} 
-                                                    alt="Wallet Backup" 
+                                            {isLoading ? (
+                                                <div className="h-40 flex items-center justify-center text-gray-400">
+                                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#a99fec]"></div>
+                                                    <span className="ml-2">Generating image...</span>
+                                                </div>
+                                            ) : exportImageUrl ? (
+                                                <img
+                                                    src={exportImageUrl}
+                                                    alt="Wallet Backup"
                                                     className="max-w-full max-h-40 object-contain"
+                                                    onError={(e) => {
+                                                        console.error('Image failed to load', e);
+                                                        setError('Failed to load the generated image');
+                                                    }}
                                                 />
                                             ) : (
                                                 <div className="h-40 flex items-center justify-center text-gray-400">
-                                                    Loading image...
+                                                    <div className="text-center">
+                                                        <AlertCircle className="w-8 h-8 mx-auto mb-2" />
+                                                        <p>Click "Image" tab to generate backup image</p>
+                                                    </div>
                                                 </div>
                                             )}
                                         </div>
@@ -568,7 +606,7 @@ export default function SettingsPage() {
                                                 // Create a temporary link element
                                                 const link = document.createElement('a');
                                                 link.href = exportImageUrl;
-                                                link.download = 'wollet-backup.png';
+                                                link.download = 'wollet-backup-encrypted.png';
                                                 document.body.appendChild(link);
                                                 link.click();
                                                 document.body.removeChild(link);
@@ -587,6 +625,8 @@ export default function SettingsPage() {
                                     onClick={() => {
                                         setShowExportModal(false);
                                         setExportType('text'); // Reset to default for next time
+                                        setExportImageUrl(null); // Reset image URL
+                                        setExportData(''); // Reset export data
                                     }}
                                 >
                                     Close
@@ -662,6 +702,9 @@ export default function SettingsPage() {
                                                             setError("");
                                                             try {
                                                                 const extractedData = await extractDataFromImage(file);
+                                                                if (!extractedData) {
+                                                                    throw new Error('No data found in the image or invalid image format');
+                                                                }
                                                                 setImportData(extractedData);
                                                                 setSuccess("Data extracted from image successfully");
                                                                 setTimeout(() => setSuccess(""), 3000);

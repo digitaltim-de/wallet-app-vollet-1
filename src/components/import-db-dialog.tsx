@@ -1,14 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { AlertCircle, Upload } from "lucide-react";
+import { AlertCircle, Upload, Download, Image, FileUp, CheckCircle2 } from "lucide-react";
 import { importDatabaseFromBase64 } from "@/lib/dbExportImport";
+import { extractDataFromImage } from "@/lib/steganography";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useAccountStore } from "@/store/account";
 
@@ -25,11 +26,15 @@ export function ImportDBDialog({ className, showLabel = false }: ImportDBDialogP
   const [open, setOpen] = useState(false);
   const [passphrase, setPassphrase] = useState("");
   const [importData, setImportData] = useState("");
+  const [importType, setImportType] = useState<"text" | "image">("text");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [showConfirmOverwrite, setShowConfirmOverwrite] = useState(false);
   const [dbToOverwrite, setDbToOverwrite] = useState("");
+
+  // Refs for file inputs
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Handle import database submission
   const handleImportSubmit = async () => {
@@ -127,16 +132,99 @@ export function ImportDBDialog({ className, showLabel = false }: ImportDBDialogP
 
         {!showConfirmOverwrite ? (
           <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="import-data" className="text-gray-300">Import Data</Label>
-              <textarea
-                id="import-data"
-                value={importData}
-                onChange={(e) => setImportData(e.target.value)}
-                placeholder="Paste exported data here"
-                className="w-full h-40 font-mono text-xs bg-[#222222] border-[#444444] text-gray-300 p-2 rounded"
-              />
+            {/* Import Type Selector */}
+            <div className="w-full flex mb-4 border-b border-[#444444]">
+              <button
+                className={`flex-1 py-2 px-4 ${importType === 'text' ? 'text-[#a99fec] border-b-2 border-[#a99fec]' : 'text-gray-400'}`}
+                onClick={() => setImportType('text')}
+              >
+                <span className="flex items-center justify-center">
+                  <Download className="w-4 h-4 mr-2" />
+                  Text
+                </span>
+              </button>
+              <button
+                className={`flex-1 py-2 px-4 ${importType === 'image' ? 'text-[#a99fec] border-b-2 border-[#a99fec]' : 'text-gray-400'}`}
+                onClick={() => setImportType('image')}
+              >
+                <span className="flex items-center justify-center">
+                  <Image className="w-4 h-4 mr-2" />
+                  Image
+                </span>
+              </button>
             </div>
+
+            {/* Text Import */}
+            {importType === 'text' && (
+              <div className="space-y-2">
+                <Label htmlFor="import-data" className="text-gray-300">Import Data</Label>
+                <textarea
+                  id="import-data"
+                  value={importData}
+                  onChange={(e) => setImportData(e.target.value)}
+                  placeholder="Paste exported data here"
+                  className="w-full h-40 font-mono text-xs bg-[#222222] border-[#444444] text-gray-300 p-2 rounded"
+                />
+              </div>
+            )}
+
+            {/* Image Import */}
+            {importType === 'image' && (
+              <div className="space-y-2">
+                <Label htmlFor="import-image" className="text-gray-300">Upload Backup Image</Label>
+                <div className="flex flex-col items-center justify-center w-full h-40 bg-[#222222] border-2 border-dashed border-[#444444] rounded-lg p-4">
+                  <input
+                    type="file"
+                    id="import-image"
+                    ref={fileInputRef}
+                    accept="image/png"
+                    className="hidden"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        setIsLoading(true);
+                        setError("");
+                        try {
+                          const extractedData = await extractDataFromImage(file);
+                          if (!extractedData) {
+                            throw new Error('No data found in the image or invalid image format');
+                          }
+                          setImportData(extractedData);
+                          setSuccess("Data extracted from image successfully");
+                          setTimeout(() => setSuccess(""), 3000);
+                        } catch (error: any) {
+                          console.error("Error extracting data from image:", error);
+                          setError(error.message || "Failed to extract data from image");
+                        } finally {
+                          setIsLoading(false);
+                        }
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex flex-col items-center justify-center w-full h-full cursor-pointer"
+                    disabled={isLoading}
+                  >
+                    <FileUp className="w-10 h-10 text-gray-400 mb-2" />
+                    <p className="text-sm text-gray-400">
+                      {isLoading ? "Processing..." : "Click to upload backup image"}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">PNG only</p>
+                  </button>
+                </div>
+                {importData && importType === 'image' && (
+                  <div className="bg-green-900/20 p-3 rounded-lg border border-green-800">
+                    <p className="text-green-400 text-sm">
+                      <CheckCircle2 className="w-4 h-4 inline mr-1"/>
+                      Data extracted successfully
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label htmlFor="import-passphrase" className="text-gray-300">Passphrase</Label>
               <Input
@@ -148,12 +236,14 @@ export function ImportDBDialog({ className, showLabel = false }: ImportDBDialogP
                 className="bg-[#222222] border-[#444444] text-gray-300"
               />
             </div>
+
             <div className="bg-yellow-900/20 p-3 rounded-lg border border-yellow-800">
               <p className="text-yellow-400 text-sm">
                 <AlertCircle className="w-4 h-4 inline mr-1" />
                 This will replace your current wallet data if it exists. Make sure you have a backup.
               </p>
             </div>
+
             {error && (
               <div className="bg-red-900/20 p-3 rounded-lg flex items-start border border-red-800">
                 <AlertCircle className="w-5 h-5 text-red-500 mr-2 mt-0.5" />
@@ -162,7 +252,7 @@ export function ImportDBDialog({ className, showLabel = false }: ImportDBDialogP
             )}
             {success && (
               <div className="bg-green-900/20 p-3 rounded-lg flex items-start border border-green-800">
-                <AlertCircle className="w-5 h-5 text-green-500 mr-2 mt-0.5" />
+                <CheckCircle2 className="w-5 h-5 text-green-500 mr-2 mt-0.5" />
                 <span className="text-green-400">{success}</span>
               </div>
             )}
@@ -192,6 +282,8 @@ export function ImportDBDialog({ className, showLabel = false }: ImportDBDialogP
                   setImportData("");
                   setPassphrase("");
                   setError("");
+                  setSuccess("");
+                  setImportType('text'); // Reset to default for next time
                 }}
                 disabled={isLoading}
               >

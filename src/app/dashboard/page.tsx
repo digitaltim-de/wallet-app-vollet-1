@@ -10,6 +10,7 @@ import { useAccountStore } from "@/store/account";
 import { getAllWallets, saveWallet, Wallet as WalletType } from "@/lib/accountDb";
 import { encryptPrivateKey } from "@/lib/crypto";
 import { deriveDbName } from "@/lib/passphrase";
+import { useWalletAddressModal } from "@/components/WalletAddressModalProvider";
 
 // Import components
 import { Header } from "./components/header/Header";
@@ -91,6 +92,7 @@ interface TransactionData {
 export default function DashboardPage() {
   const router = useRouter();
   const { lock, db, dbName } = useAccountStore();
+  const { showWalletAddress } = useWalletAddressModal();
 
   const [wallets, setWallets] = useState<WalletType[]>([]);
   const [selectedWallet, setSelectedWallet] = useState<WalletType | null>(null);
@@ -390,7 +392,18 @@ export default function DashboardPage() {
   const handleCoinSelect = (coin: any) => {
     setSelectedCoin(coin);
 
-    if (!coin) return;
+    if (!coin) {
+      // Reset all states when going back to coin selection
+      setUseExistingWallet(false);
+      setSelectedExistingWallet("");
+      setExistingWallets([]);
+      setCreateWalletForm({
+        name: "",
+        network: "ethereum",
+        passphrase: "",
+      });
+      return;
+    }
 
     // Get network from provider if network property is not available
     const network = coin.network || coin.provider?.toLowerCase() || "ethereum";
@@ -484,8 +497,13 @@ export default function DashboardPage() {
       });
 
       // Show success modal
-      setShowEarnModal(false);
+      handleEarnModalClose();
       setShowSuccessModal(true);
+
+      // Show wallet address modal after success modal
+      setTimeout(() => {
+        showWalletAddress(newWallet.address, walletName, selectedCoin.shortName);
+      }, 1000);
 
       // Reset form and selection
       setSelectedCoin(null);
@@ -515,7 +533,10 @@ export default function DashboardPage() {
       // Select this wallet to view its details
       handleWalletSelect(wallet);
       // Close the EARN modal
-      setShowEarnModal(false);
+      handleEarnModalClose();
+
+      // Show wallet address modal
+      showWalletAddress(wallet.address, wallet.name, selectedCoin.shortName);
 
       toast("Success", {
         description: `Using existing ${wallet.name} wallet for ${selectedCoin.shortName}`,
@@ -739,6 +760,20 @@ export default function DashboardPage() {
     }
   };
 
+  // Handle EARN modal close
+  const handleEarnModalClose = () => {
+    setShowEarnModal(false);
+    // Reset all earn-related states
+    setSelectedCoin(null);
+    setUseExistingWallet(false);
+    setSelectedExistingWallet("");
+    setCreateWalletForm({
+      name: "",
+      network: "ethereum",
+      passphrase: "",
+    });
+  };
+
   return (
     <RouteGuard>
       <div className="min-h-screen bg-[#222222] text-white">
@@ -801,7 +836,7 @@ export default function DashboardPage() {
 
         <EarnModal 
           isOpen={showEarnModal}
-          onClose={() => setShowEarnModal(false)}
+          onClose={handleEarnModalClose}
           supportedCoins={supportedCoins}
           existingWallets={existingWallets}
           isLoading={isLoadingCoins}
