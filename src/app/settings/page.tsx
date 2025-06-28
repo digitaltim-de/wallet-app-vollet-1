@@ -1,6 +1,6 @@
 "use client";
 
-import {useState} from "react";
+import {useState, useRef} from "react";
 import {useRouter} from "next/navigation";
 import {signOut} from "next-auth/react";
 import {QRCodeSVG} from "qrcode.react";
@@ -8,22 +8,11 @@ import {Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle} f
 import {Button} from "@/components/ui/button";
 import {Input} from "@/components/ui/input";
 import {Label} from "@/components/ui/label";
-import {
-    AlertCircle,
-    ArrowLeft,
-    CheckCircle2,
-    Copy,
-    Download,
-    Eye,
-    EyeOff,
-    Key,
-    QrCode,
-    Trash2,
-    Upload
-} from "lucide-react";
+import {AlertCircle, ArrowLeft, CheckCircle2, Download, Image, FileUp, Trash2, Upload} from "lucide-react";
 import {deleteWallet, getWallet} from "@/lib/db";
 import {decryptPrivateKey} from "@/lib/crypto";
 import {exportDatabaseToBase64, importDatabaseFromBase64} from "@/lib/dbExportImport";
+import {embedDataInImage, extractDataFromImage} from "@/lib/steganography";
 import {useAccountStore} from "@/store/account";
 import {RouteGuard} from "@/components/route-guard";
 
@@ -46,6 +35,12 @@ export default function SettingsPage() {
     const [actionType, setActionType] = useState<"export" | "delete" | "exportDb" | "importDb" | null>(null);
     const [exportData, setExportData] = useState("");
     const [importData, setImportData] = useState("");
+    const [exportImageUrl, setExportImageUrl] = useState<string | null>(null);
+    const [exportType, setExportType] = useState<"text" | "image">("text");
+    const [importType, setImportType] = useState<"text" | "image">("text");
+
+    // Refs for file inputs
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     // We'll need to get address and network from a different source
     // For now, we'll use placeholder values
@@ -131,6 +126,18 @@ export default function SettingsPage() {
                 // Export the database to encrypted base64
                 const exportedData = await exportDatabaseToBase64(dbName, passphrase);
                 setExportData(exportedData);
+
+                // If export type is image, embed the data in the image
+                if (exportType === "image") {
+                    try {
+                        const imageUrl = await embedDataInImage('/cryptowallet-backup.png', exportedData);
+                        setExportImageUrl(imageUrl);
+                    } catch (error) {
+                        console.error('Error embedding data in image:', error);
+                        throw new Error('Failed to create image backup. Please try again.');
+                    }
+                }
+
                 setShowPassphraseModal(false);
                 setShowExportModal(true);
                 return;
@@ -475,36 +482,112 @@ export default function SettingsPage() {
                             <CardHeader>
                                 <CardTitle className="text-[#a99fec]">Database Export</CardTitle>
                                 <CardDescription className="text-gray-400">
-                                    Copy this text to import your wallet data on another device
+                                    Choose how you want to export your wallet data
                                 </CardDescription>
                             </CardHeader>
                             <CardContent className="flex flex-col items-center">
-                                <div className="w-full bg-[#222222] p-4 rounded-lg">
-                  <textarea
-                      value={exportData}
-                      readOnly
-                      className="w-full h-40 bg-[#222222] border-[#444444] text-gray-300 font-mono text-xs p-2 rounded"
-                  />
+                                {/* Export Type Selector */}
+                                <div className="w-full flex mb-4 border-b border-[#444444]">
+                                    <button
+                                        className={`flex-1 py-2 px-4 ${exportType === 'text' ? 'text-[#a99fec] border-b-2 border-[#a99fec]' : 'text-gray-400'}`}
+                                        onClick={() => setExportType('text')}
+                                    >
+                                        <span className="flex items-center justify-center">
+                                            <Download className="w-4 h-4 mr-2" />
+                                            Text
+                                        </span>
+                                    </button>
+                                    <button
+                                        className={`flex-1 py-2 px-4 ${exportType === 'image' ? 'text-[#a99fec] border-b-2 border-[#a99fec]' : 'text-gray-400'}`}
+                                        onClick={() => setExportType('image')}
+                                    >
+                                        <span className="flex items-center justify-center">
+                                            <Image className="w-4 h-4 mr-2" />
+                                            Image
+                                        </span>
+                                    </button>
                                 </div>
-                                <div className="mt-4 text-center text-red-400 text-sm font-medium">
-                                    WARNING: Keep this data private and secure!
-                                </div>
+
+                                {/* Text Export */}
+                                {exportType === 'text' && (
+                                    <>
+                                        <div className="w-full bg-[#222222] p-4 rounded-lg">
+                                            <textarea
+                                                value={exportData}
+                                                readOnly
+                                                className="w-full h-40 bg-[#222222] border-[#444444] text-gray-300 font-mono text-xs p-2 rounded"
+                                            />
+                                        </div>
+                                        <div className="mt-4 text-center text-red-400 text-sm font-medium">
+                                            WARNING: Keep this data private and secure!
+                                        </div>
+                                    </>
+                                )}
+
+                                {/* Image Export */}
+                                {exportType === 'image' && (
+                                    <>
+                                        <div className="w-full bg-[#222222] p-4 rounded-lg flex justify-center">
+                                            {exportImageUrl ? (
+                                                <img 
+                                                    src={exportImageUrl} 
+                                                    alt="Wallet Backup" 
+                                                    className="max-w-full max-h-40 object-contain"
+                                                />
+                                            ) : (
+                                                <div className="h-40 flex items-center justify-center text-gray-400">
+                                                    Loading image...
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="mt-4 text-center text-red-400 text-sm font-medium">
+                                            WARNING: This image contains your encrypted wallet data!
+                                        </div>
+                                    </>
+                                )}
                             </CardContent>
                             <CardFooter className="flex justify-between w-full">
-                                <Button
-                                    variant="outline"
-                                    className="border-[#444444] bg-[#333333] text-white hover:bg-[#444444] hover:text-[#a99fec]"
-                                    onClick={() => {
-                                        navigator.clipboard.writeText(exportData);
-                                        setSuccess("Export data copied to clipboard");
-                                        setTimeout(() => setSuccess(""), 3000);
-                                    }}
-                                >
-                                    Copy to Clipboard
-                                </Button>
+                                {exportType === 'text' ? (
+                                    <Button
+                                        variant="outline"
+                                        className="border-[#444444] bg-[#333333] text-white hover:bg-[#444444] hover:text-[#a99fec]"
+                                        onClick={() => {
+                                            navigator.clipboard.writeText(exportData);
+                                            setSuccess("Export data copied to clipboard");
+                                            setTimeout(() => setSuccess(""), 3000);
+                                        }}
+                                    >
+                                        Copy to Clipboard
+                                    </Button>
+                                ) : (
+                                    <Button
+                                        variant="outline"
+                                        className="border-[#444444] bg-[#333333] text-white hover:bg-[#444444] hover:text-[#a99fec]"
+                                        onClick={() => {
+                                            if (exportImageUrl) {
+                                                // Create a temporary link element
+                                                const link = document.createElement('a');
+                                                link.href = exportImageUrl;
+                                                link.download = 'wollet-backup.png';
+                                                document.body.appendChild(link);
+                                                link.click();
+                                                document.body.removeChild(link);
+
+                                                setSuccess("Image downloaded successfully");
+                                                setTimeout(() => setSuccess(""), 3000);
+                                            }
+                                        }}
+                                        disabled={!exportImageUrl}
+                                    >
+                                        Download Image
+                                    </Button>
+                                )}
                                 <Button
                                     className="bg-[#a99fec] text-[#222222] hover:bg-[#9888db]"
-                                    onClick={() => setShowExportModal(false)}
+                                    onClick={() => {
+                                        setShowExportModal(false);
+                                        setExportType('text'); // Reset to default for next time
+                                    }}
                                 >
                                     Close
                                 </Button>
@@ -520,21 +603,101 @@ export default function SettingsPage() {
                             <CardHeader>
                                 <CardTitle className="text-[#a99fec]">Import Database</CardTitle>
                                 <CardDescription className="text-gray-400">
-                                    Paste the exported data to import your wallet
+                                    Choose how you want to import your wallet data
                                 </CardDescription>
                             </CardHeader>
                             <CardContent>
+                                {/* Import Type Selector */}
+                                <div className="w-full flex mb-4 border-b border-[#444444]">
+                                    <button
+                                        className={`flex-1 py-2 px-4 ${importType === 'text' ? 'text-[#a99fec] border-b-2 border-[#a99fec]' : 'text-gray-400'}`}
+                                        onClick={() => setImportType('text')}
+                                    >
+                                        <span className="flex items-center justify-center">
+                                            <Download className="w-4 h-4 mr-2" />
+                                            Text
+                                        </span>
+                                    </button>
+                                    <button
+                                        className={`flex-1 py-2 px-4 ${importType === 'image' ? 'text-[#a99fec] border-b-2 border-[#a99fec]' : 'text-gray-400'}`}
+                                        onClick={() => setImportType('image')}
+                                    >
+                                        <span className="flex items-center justify-center">
+                                            <Image className="w-4 h-4 mr-2" />
+                                            Image
+                                        </span>
+                                    </button>
+                                </div>
+
                                 <div className="space-y-4">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="import-data" className="text-gray-300">Import Data</Label>
-                                        <textarea
-                                            id="import-data"
-                                            value={importData}
-                                            onChange={(e) => setImportData(e.target.value)}
-                                            placeholder="Paste exported data here"
-                                            className="w-full h-40 font-mono text-xs bg-[#222222] border-[#444444] text-gray-300 p-2 rounded"
-                                        />
-                                    </div>
+                                    {/* Text Import */}
+                                    {importType === 'text' && (
+                                        <div className="space-y-2">
+                                            <Label htmlFor="import-data" className="text-gray-300">Import Data</Label>
+                                            <textarea
+                                                id="import-data"
+                                                value={importData}
+                                                onChange={(e) => setImportData(e.target.value)}
+                                                placeholder="Paste exported data here"
+                                                className="w-full h-40 font-mono text-xs bg-[#222222] border-[#444444] text-gray-300 p-2 rounded"
+                                            />
+                                        </div>
+                                    )}
+
+                                    {/* Image Import */}
+                                    {importType === 'image' && (
+                                        <div className="space-y-2">
+                                            <Label htmlFor="import-image" className="text-gray-300">Upload Backup Image</Label>
+                                            <div className="flex flex-col items-center justify-center w-full h-40 bg-[#222222] border-2 border-dashed border-[#444444] rounded-lg p-4">
+                                                <input
+                                                    type="file"
+                                                    id="import-image"
+                                                    ref={fileInputRef}
+                                                    accept="image/png"
+                                                    className="hidden"
+                                                    onChange={async (e) => {
+                                                        const file = e.target.files?.[0];
+                                                        if (file) {
+                                                            setIsLoading(true);
+                                                            setError("");
+                                                            try {
+                                                                const extractedData = await extractDataFromImage(file);
+                                                                setImportData(extractedData);
+                                                                setSuccess("Data extracted from image successfully");
+                                                                setTimeout(() => setSuccess(""), 3000);
+                                                            } catch (error: any) {
+                                                                console.error("Error extracting data from image:", error);
+                                                                setError(error.message || "Failed to extract data from image");
+                                                            } finally {
+                                                                setIsLoading(false);
+                                                            }
+                                                        }
+                                                    }}
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => fileInputRef.current?.click()}
+                                                    className="flex flex-col items-center justify-center w-full h-full cursor-pointer"
+                                                    disabled={isLoading}
+                                                >
+                                                    <FileUp className="w-10 h-10 text-gray-400 mb-2" />
+                                                    <p className="text-sm text-gray-400">
+                                                        {isLoading ? "Processing..." : "Click to upload backup image"}
+                                                    </p>
+                                                    <p className="text-xs text-gray-500 mt-1">PNG only</p>
+                                                </button>
+                                            </div>
+                                            {importData && importType === 'image' && (
+                                                <div className="bg-green-900/20 p-3 rounded-lg border border-green-800">
+                                                    <p className="text-green-400 text-sm">
+                                                        <CheckCircle2 className="w-4 h-4 inline mr-1"/>
+                                                        Data extracted successfully
+                                                    </p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
                                     <div className="space-y-2">
                                         <Label htmlFor="import-passphrase" className="text-gray-300">Passphrase</Label>
                                         <Input
@@ -546,15 +709,16 @@ export default function SettingsPage() {
                                             className="bg-[#222222] border-[#444444] text-gray-300"
                                         />
                                     </div>
+
                                     <div className="bg-yellow-900/20 p-3 rounded-lg border border-yellow-800">
                                         <p className="text-yellow-400 text-sm">
                                             <AlertCircle className="w-4 h-4 inline mr-1"/>
                                             This will replace your current wallet data. Make sure you have a backup.
                                         </p>
                                     </div>
+
                                     {error && (
-                                        <div
-                                            className="bg-red-900/20 p-3 rounded-lg flex items-start border border-red-800">
+                                        <div className="bg-red-900/20 p-3 rounded-lg flex items-start border border-red-800">
                                             <AlertCircle className="w-5 h-5 text-red-500 mr-2 mt-0.5"/>
                                             <span className="text-red-400">{error}</span>
                                         </div>
@@ -570,6 +734,7 @@ export default function SettingsPage() {
                                         setImportData("");
                                         setPassphrase("");
                                         setError("");
+                                        setImportType('text'); // Reset to default for next time
                                     }}
                                     disabled={isLoading}
                                 >
