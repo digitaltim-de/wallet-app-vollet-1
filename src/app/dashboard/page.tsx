@@ -15,7 +15,7 @@ import { useWalletAddressModal } from "@/components/WalletAddressModalProvider";
 // Import components
 import { Header } from "./components/header/Header";
 import { WalletList } from "./components/wallet/WalletList";
-import { WalletDetails } from "./components/wallet/WalletDetails";
+import WalletDetails from "./components/wallet/WalletDetails";
 import { TransactionList } from "./components/transactions/TransactionList";
 import { EarnModal } from "./components/earn/EarnModal";
 import { CreateWalletModal } from "./components/modals/CreateWalletModal";
